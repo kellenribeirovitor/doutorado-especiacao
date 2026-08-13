@@ -5,7 +5,9 @@ import { useMemo, useState } from "react";
 import chemistryDatabase from "@/data/chemistry-database.json";
 import {
   calculateEquilibrium,
+  SUPPORTED_EQUILIBRIUM_TYPES,
   type ChemistryDatabase,
+  type EquilibriumType,
   type EquilibriumResult,
   type QueryEntry,
 } from "@/lib/equilibrium";
@@ -17,6 +19,16 @@ type EditableEntry = {
   materialId: string;
   concentration: string;
 };
+
+const equilibriumOptions: Array<{
+  id: EquilibriumType;
+  label: string;
+}> = [
+  { id: "acid_base", label: "Ácido–base" },
+  { id: "complexation", label: "Complexação" },
+  { id: "redox", label: "Redox" },
+  { id: "precipitation", label: "Precipitação" },
+];
 
 const database = chemistryDatabase as ChemistryDatabase;
 const protonComponentId = database.components.find(
@@ -94,6 +106,7 @@ export default function Home() {
   const [result, setResult] = useState<EquilibriumResult | null>(null);
   const [error, setError] = useState("");
   const [activityModel, setActivityModel] = useState("ideal");
+  const [equilibriumTypes, setEquilibriumTypes] = useState<EquilibriumType[]>(["acid_base"]);
 
   const materialById = useMemo(
     () => new Map(database.materials.map((material) => [material.material_id, material])),
@@ -102,7 +115,11 @@ export default function Home() {
 
   function calculate(entriesToCalculate: EditableEntry[]) {
     try {
-      const calculated = calculateEquilibrium(database, toQueryEntries(entriesToCalculate));
+      const calculated = calculateEquilibrium(
+        database,
+        toQueryEntries(entriesToCalculate),
+        equilibriumTypes,
+      );
       setResult(calculated);
       setError("");
     } catch (calculationError) {
@@ -136,6 +153,16 @@ export default function Home() {
     setError("");
   }
 
+  function toggleEquilibriumType(type: EquilibriumType) {
+    setEquilibriumTypes((selected) =>
+      selected.includes(type)
+        ? selected.filter((item) => item !== type)
+        : [...selected, type],
+    );
+    setResult(null);
+    setError("");
+  }
+
   const familyTotals = new Map<string, number>();
   for (const species of result?.selectedSpecies ?? []) {
     const family = familyForSpecies(species.species_id);
@@ -158,9 +185,9 @@ export default function Home() {
   return (
     <main className="application-shell">
       <header className="app-header">
-        <a className="tool-brand" href="#workspace" aria-label="Especiação aquosa — início">
+        <a className="tool-brand" href="#workspace" aria-label="Especiação Química em Solução Aquosa — início">
           <span className="tool-mark" aria-hidden="true">Σ</span>
-          <strong>Especiação aquosa</strong>
+          <strong>Especiação Química em Solução Aquosa</strong>
         </a>
       </header>
 
@@ -185,18 +212,40 @@ export default function Home() {
 
         <div className="work-grid">
           <div className="input-column">
+            <section className="panel equilibrium-types-panel" aria-labelledby="equilibrium-types-title">
+              <div className="equilibrium-types-heading">
+                <span className="section-index">01</span>
+                <h2 id="equilibrium-types-title">Tipos de equilíbrio</h2>
+              </div>
+              <div className="equilibrium-options">
+                {equilibriumOptions.map((option) => {
+                  const available = SUPPORTED_EQUILIBRIUM_TYPES.includes(option.id);
+                  return (
+                    <label className={available ? "" : "unavailable"} key={option.id} title={available ? undefined : "Ainda não disponível"}>
+                      <input
+                        type="checkbox"
+                        checked={equilibriumTypes.includes(option.id)}
+                        disabled={!available}
+                        onChange={() => toggleEquilibriumType(option.id)}
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+
             <section className="panel conditions-panel compact-conditions" aria-labelledby="conditions-title">
               <div className="conditions-row">
-                <div><span className="section-index">01</span><h2 id="conditions-title">Condições do sistema</h2></div>
+                <div><span className="section-index">02</span><h2 id="conditions-title">Condições do sistema</h2></div>
                 <label><span>Temperatura</span><span className="input-shell"><input value="25,00" readOnly aria-label="Temperatura" /><small>°C</small></span></label>
-                <label><span>Volume de referência</span><span className="input-shell"><input value="1,000" readOnly aria-label="Volume de referência" /><small>L</small></span></label>
                 <label><span>Modelo de atividade</span><span className="select-shell"><select value={activityModel} onChange={(event) => setActivityModel(event.target.value)} aria-label="Modelo de atividade"><option value="ideal">Solução ideal</option></select></span></label>
               </div>
             </section>
 
             <section className="panel components-panel" id="components" aria-labelledby="components-title">
               <div className="panel-heading">
-                <div><span className="section-index">02</span><h2 id="components-title">Composição analítica</h2></div>
+                <div><span className="section-index">03</span><h2 id="components-title">Composição analítica</h2></div>
                 <button type="button" className="text-button" onClick={addEntry} disabled={entries.length >= database.materials.length}>+ Adicionar componente</button>
               </div>
               <div className="component-table" role="table" aria-label="Materiais adicionados à consulta">
@@ -224,7 +273,7 @@ export default function Home() {
                 {entries.length === 0 && <div className="empty-entry">Nenhum componente adicionado.</div>}
               </div>
               <div className="component-actions">
-                <button type="button" className="primary-button" onClick={() => calculate(entries)} disabled={entries.length === 0}>Calcular</button>
+                <button type="button" className="primary-button" onClick={() => calculate(entries)} disabled={entries.length === 0 || equilibriumTypes.length === 0}>Calcular</button>
               </div>
             </section>
           </div>
@@ -232,7 +281,7 @@ export default function Home() {
           <aside className="results-column" id="results" aria-labelledby="results-title">
             <section className="panel result-card">
               <div className="panel-heading compact">
-                <div><span className="section-index">03</span><h2 id="results-title">Resultado do equilíbrio</h2></div>
+                <div><span className="section-index">04</span><h2 id="results-title">Resultado do equilíbrio</h2></div>
                 {result && <span className="converged"><i /> convergiu</span>}
               </div>
               {result ? <>
@@ -261,7 +310,7 @@ export default function Home() {
         </div>
 
         <section className="panel species-panel" id="species" aria-labelledby="species-title">
-          <div className="panel-heading"><div><span className="section-index">04</span><h2 id="species-title">Concentrações de equilíbrio</h2></div>{result && <div className="table-tools"><span>{result.selectedSpecies.length} espécies ativas</span></div>}</div>
+          <div className="panel-heading"><div><span className="section-index">05</span><h2 id="species-title">Concentrações de equilíbrio</h2></div>{result && <div className="table-tools"><span>{result.selectedSpecies.length} espécies ativas</span></div>}</div>
           {result ? <div className="species-table-wrap">
             <table>
               <thead><tr><th>Espécie</th><th>Nome</th><th>Família</th><th>Carga</th><th>Concentração (mol/L)</th></tr></thead>

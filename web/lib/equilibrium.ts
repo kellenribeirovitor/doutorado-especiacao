@@ -42,6 +42,10 @@ export type QueryEntry = {
   concentration: number;
 };
 
+export type EquilibriumType = "acid_base" | "complexation" | "redox" | "precipitation";
+
+export const SUPPORTED_EQUILIBRIUM_TYPES: readonly EquilibriumType[] = ["acid_base"];
+
 type Problem = {
   database: ChemistryDatabase;
   protonComponentId: string;
@@ -283,7 +287,17 @@ function solveProblem(problem: Problem) {
 export function calculateEquilibrium(
   database: ChemistryDatabase,
   entries: QueryEntry[],
+  equilibriumTypes: EquilibriumType[] = ["acid_base"],
 ): EquilibriumResult {
+  if (equilibriumTypes.length === 0) {
+    throw new Error("Selecione ao menos um tipo de equilíbrio.");
+  }
+  const unsupportedTypes = equilibriumTypes.filter(
+    (type) => !SUPPORTED_EQUILIBRIUM_TYPES.includes(type),
+  );
+  if (unsupportedTypes.length > 0) {
+    throw new Error(`Tipos de equilíbrio ainda não suportados: ${unsupportedTypes.join(", ")}.`);
+  }
   const componentTotals = componentTotalsFromEntries(database, entries);
   const problem = buildProblem(database, componentTotals);
   const numerical = solveProblem(problem);

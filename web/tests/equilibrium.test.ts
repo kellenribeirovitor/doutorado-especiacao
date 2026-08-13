@@ -14,7 +14,7 @@ test("reproduz no navegador o caso do Excel anterior", () => {
   const result = calculateEquilibrium(database, [
     { materialId: "M009", concentration: 0.025 },
     { materialId: "M011", concentration: 0.001 },
-  ]);
+  ], ["acid_base"]);
 
   assert.ok(Math.abs(result.pH - 3.033672202678) < 1e-8);
   assert.ok(Math.abs(result.calculatedKw - 1e-14) < 1e-24);
@@ -39,6 +39,20 @@ test("resolve água pura", () => {
 
   assert.ok(Math.abs(result.pH - 7) < 1e-12);
   assert.deepEqual(result.activeComponents, []);
+});
+
+test("exige ao menos um tipo de equilíbrio", () => {
+  assert.throws(
+    () => calculateEquilibrium(database, [], []),
+    /Selecione ao menos um tipo de equilíbrio/,
+  );
+});
+
+test("recusa tipos sem suporte científico", () => {
+  assert.throws(
+    () => calculateEquilibrium(database, [], ["complexation"]),
+    /ainda não suportados: complexation/,
+  );
 });
 
 test("converte materiais em totais dos componentes-base", () => {

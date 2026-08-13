@@ -9,6 +9,8 @@ test("gera a ferramenta como uma página estática", async () => {
 
   assert.match(html, /<!DOCTYPE html>/i);
   assert.match(html, /<html[^>]*lang="pt-BR"/i);
+  assert.match(html, /Especiação Química em Solução Aquosa/);
+  assert.doesNotMatch(html, /Especiação aquosa/);
   assert.match(html, /Sistema de equilíbrio/);
   assert.match(html, /Composição analítica/);
   assert.match(html, /Nenhum componente adicionado/);
@@ -17,6 +19,12 @@ test("gera a ferramenta como uma página estática", async () => {
   assert.match(html, /Adicionar componente/);
   assert.match(html, /Calcular/);
   assert.match(html, /Modelo ativo/);
+  assert.match(html, /Tipos de equilíbrio/);
+  assert.match(html, /Ácido–base/);
+  assert.match(html, /Complexação/);
+  assert.match(html, /Redox/);
+  assert.match(html, /Precipitação/);
+  assert.doesNotMatch(html, /Volume de referência/);
   assert.doesNotMatch(html, /href="#method"|href="#database"/);
   assert.doesNotMatch(html, /method-strip|Relação de formação/);
   assert.doesNotMatch(html, /equilíbrio por componentes|Consulta atual|Nova consulta/);

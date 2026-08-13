@@ -1,6 +1,6 @@
 # Interface web
 
-Interface da ferramenta de especiação aquosa, construída com React e vinext.
+Interface da ferramenta Especiação Química em Solução Aquosa, construída com React e vinext.
 
 ## Desenvolvimento local
 

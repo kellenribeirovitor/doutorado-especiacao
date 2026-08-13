@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Especiação aquosa | Ferramenta de equilíbrio",
+  title: "Especiação Química em Solução Aquosa",
   description:
     "Ferramenta científica para configurar e examinar equilíbrios ácido-base orientados a componentes.",
 };

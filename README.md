@@ -1,4 +1,4 @@
-# Especiação aquosa
+# Especiação Química em Solução Aquosa
 
 Ferramenta acadêmica em desenvolvimento para modelagem de equilíbrios ácido-base em fase aquosa, formulada por componentes-base, balanços de massa e eletroneutralidade.
 
