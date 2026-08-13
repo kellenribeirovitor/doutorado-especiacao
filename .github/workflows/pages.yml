@@ -1,0 +1,80 @@
+name: Publicar interface no GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  test-python:
+    name: Testar núcleo científico
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v4
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+      - name: Executar testes
+        run: python -m unittest discover -s tests -v
+
+  build-web:
+    name: Construir interface
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v4
+      - name: Preparar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+          run_install: false
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: Instalar dependências
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+      - name: Verificar interface
+        working-directory: web
+        run: pnpm lint
+      - name: Gerar site estático
+        working-directory: web
+        run: pnpm build:pages
+      - name: Testar conteúdo gerado
+        working-directory: web
+        run: pnpm test
+      - name: Configurar Pages
+        uses: actions/configure-pages@v5
+      - name: Enviar artefato estático
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: web/dist/client
+
+  deploy:
+    name: Publicar
+    needs: [test-python, build-web]
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publicar no GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

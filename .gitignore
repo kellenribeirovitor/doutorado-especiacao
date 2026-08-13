@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Node / web
+web/node_modules/
+web/.next/
+web/.vinext/
+web/dist/
+web/out/
+web/.wrangler/
+web/outputs/
+web/work/
+web/.codex-dev.*.log
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
