@@ -50,8 +50,14 @@ pnpm install
 pnpm dev
 ```
 
-A publicação no GitHub Pages é gerada automaticamente a partir da branch `main`. O Pages hospeda somente arquivos estáticos: nesta etapa, a interface apresenta um caso validado e não executa o solver Python. A integração do cálculo no navegador será implementada separadamente.
+A publicação no GitHub Pages é gerada automaticamente a partir da branch `main`. O site é estático, mas executa no próprio navegador o mesmo modelo ideal ácido-base do núcleo Python. O usuário seleciona materiais cadastrados na base, informa as concentrações analíticas e recebe pH, diagnóstico numérico e concentrações de equilíbrio.
+
+A planilha `data/base_componentes.xlsx` continua sendo a fonte de verdade da base química. A interface começa com uma consulta vazia; `data/componentes_selecionados.xlsx` permanece como entrada do programa Python e como caso de regressão nos testes. Depois de alterar a base, sincronize os dados da interface com:
+
+```bash
+python scripts/export_web_data.py
+```
 
 ## Dados e privacidade
 
-A aplicação não utiliza Firebase nem banco de dados remoto. As consultas não são armazenadas. Os arquivos `.xlsx` incluídos integram a base acadêmica necessária para reproduzir os cálculos atuais.
+A aplicação não utiliza Firebase nem banco de dados remoto. Os cálculos são realizados localmente no navegador e as consultas não são armazenadas. Os arquivos `.xlsx` incluídos integram a base acadêmica necessária para reproduzir os cálculos atuais.

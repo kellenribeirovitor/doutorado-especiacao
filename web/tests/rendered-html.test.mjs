@@ -11,10 +11,12 @@ test("gera a ferramenta como uma página estática", async () => {
   assert.match(html, /<html[^>]*lang="pt-BR"/i);
   assert.match(html, /Sistema de equilíbrio/);
   assert.match(html, /Composição analítica/);
-  assert.match(html, /0,025000/);
-  assert.match(html, /3,033672/);
+  assert.match(html, /Nenhum componente adicionado/);
+  assert.doesNotMatch(html, /3,033672/);
   assert.match(html, /Concentrações de equilíbrio/);
-  assert.match(html, /Prévia funcional da interface/);
+  assert.match(html, /Adicionar componente/);
+  assert.match(html, /Calcular/);
+  assert.doesNotMatch(html, /Restaurar exemplo|Carregar exemplo/);
   assert.doesNotMatch(html, /react-loading-skeleton|Starter Project/);
 });
 

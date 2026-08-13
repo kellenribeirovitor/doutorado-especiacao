@@ -1,0 +1,452 @@
+{
+  "schemaVersion": 1,
+  "components": [
+    {
+      "component_id": "001",
+      "species_id": "S001",
+      "formula": "H+",
+      "name": "Próton",
+      "charge": 1.0,
+      "balance_mode": "electroneutrality",
+      "notes": "Componente ácido-base; sem balanço analítico de H."
+    },
+    {
+      "component_id": "002",
+      "species_id": "S003",
+      "formula": "F-",
+      "name": "Fluoreto",
+      "charge": -1.0,
+      "balance_mode": "mass_balance",
+      "notes": "Componente conservado da família do fluoreto."
+    },
+    {
+      "component_id": "003",
+      "species_id": "S005",
+      "formula": "Cl-",
+      "name": "Cloreto",
+      "charge": -1.0,
+      "balance_mode": "mass_balance",
+      "notes": "Componente conservado do cloreto."
+    },
+    {
+      "component_id": "004",
+      "species_id": "S006",
+      "formula": "NH3",
+      "name": "Amônia",
+      "charge": 0.0,
+      "balance_mode": "mass_balance",
+      "notes": "Componente conservado da família NHx."
+    },
+    {
+      "component_id": "005",
+      "species_id": "S008",
+      "formula": "NO3-",
+      "name": "Nitrato",
+      "charge": -1.0,
+      "balance_mode": "mass_balance",
+      "notes": "Componente conservado do nitrato."
+    },
+    {
+      "component_id": "006",
+      "species_id": "S009",
+      "formula": "Na+",
+      "name": "Sódio",
+      "charge": 1.0,
+      "balance_mode": "mass_balance",
+      "notes": "Componente conservado do sódio."
+    },
+    {
+      "component_id": "007",
+      "species_id": "S010",
+      "formula": "SO4-2",
+      "name": "Sulfato",
+      "charge": -2.0,
+      "balance_mode": "mass_balance",
+      "notes": "Componente conservado da família sulfato."
+    },
+    {
+      "component_id": "008",
+      "species_id": "S012",
+      "formula": "CH3COO-",
+      "name": "Acetato",
+      "charge": -1.0,
+      "balance_mode": "mass_balance",
+      "notes": "Componente conservado da família acetato."
+    },
+    {
+      "component_id": "009",
+      "species_id": "S014",
+      "formula": "Cit-3",
+      "name": "Citrato",
+      "charge": -3.0,
+      "balance_mode": "mass_balance",
+      "notes": "Componente conservado da família citrato."
+    }
+  ],
+  "species": [
+    {
+      "species_id": "S001",
+      "formula": "H+",
+      "name": "Próton",
+      "charge": 1.0,
+      "log_beta": 0.0,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "component",
+      "source_logk": null,
+      "notes": "Espécie do componente 001."
+    },
+    {
+      "species_id": "S002",
+      "formula": "OH-",
+      "name": "Hidróxido",
+      "charge": -1.0,
+      "log_beta": -14.0,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "KW",
+      "source_logk": -14.0,
+      "notes": "[OH-] = 10^-14/[H+]; atividade da água = 1."
+    },
+    {
+      "species_id": "S003",
+      "formula": "F-",
+      "name": "Fluoreto",
+      "charge": -1.0,
+      "log_beta": 0.0,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "component",
+      "source_logk": null,
+      "notes": "Espécie do componente 002."
+    },
+    {
+      "species_id": "S004",
+      "formula": "HF",
+      "name": "Ácido fluorídrico",
+      "charge": 0.0,
+      "log_beta": 3.167491,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "HF",
+      "source_logk": -3.167491,
+      "notes": "logβ = -logKa."
+    },
+    {
+      "species_id": "S005",
+      "formula": "Cl-",
+      "name": "Cloreto",
+      "charge": -1.0,
+      "log_beta": 0.0,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "component",
+      "source_logk": null,
+      "notes": "Espécie do componente 003."
+    },
+    {
+      "species_id": "S006",
+      "formula": "NH3",
+      "name": "Amônia",
+      "charge": 0.0,
+      "log_beta": 0.0,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "component",
+      "source_logk": null,
+      "notes": "Espécie do componente 004."
+    },
+    {
+      "species_id": "S007",
+      "formula": "NH4+",
+      "name": "Amônio",
+      "charge": 1.0,
+      "log_beta": 9.236572,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "NH4",
+      "source_logk": -9.236572,
+      "notes": "logβ = -logKa."
+    },
+    {
+      "species_id": "S008",
+      "formula": "NO3-",
+      "name": "Nitrato",
+      "charge": -1.0,
+      "log_beta": 0.0,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "component",
+      "source_logk": null,
+      "notes": "Espécie do componente 005."
+    },
+    {
+      "species_id": "S009",
+      "formula": "Na+",
+      "name": "Sódio",
+      "charge": 1.0,
+      "log_beta": 0.0,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "component",
+      "source_logk": null,
+      "notes": "Espécie do componente 006."
+    },
+    {
+      "species_id": "S010",
+      "formula": "SO4-2",
+      "name": "Sulfato",
+      "charge": -2.0,
+      "log_beta": 0.0,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "component",
+      "source_logk": null,
+      "notes": "Espécie do componente 007."
+    },
+    {
+      "species_id": "S011",
+      "formula": "HSO4-",
+      "name": "Hidrogenossulfato",
+      "charge": -1.0,
+      "log_beta": 1.920819,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "HSO4",
+      "source_logk": -1.920819,
+      "notes": "logβ = -logKa."
+    },
+    {
+      "species_id": "S012",
+      "formula": "CH3COO-",
+      "name": "Acetato",
+      "charge": -1.0,
+      "log_beta": 0.0,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "component",
+      "source_logk": null,
+      "notes": "Espécie do componente 008."
+    },
+    {
+      "species_id": "S013",
+      "formula": "CH3COOH",
+      "name": "Ácido acético",
+      "charge": 0.0,
+      "log_beta": 4.754487,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "CH3COOH",
+      "source_logk": -4.754487,
+      "notes": "logβ = -logKa."
+    },
+    {
+      "species_id": "S014",
+      "formula": "Cit-3",
+      "name": "Citrato",
+      "charge": -3.0,
+      "log_beta": 0.0,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "component",
+      "source_logk": null,
+      "notes": "Espécie do componente 009."
+    },
+    {
+      "species_id": "S015",
+      "formula": "HCit-2",
+      "name": "Hidrogenocitrato",
+      "charge": -2.0,
+      "log_beta": 6.396,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "CIT3",
+      "source_logk": -6.396,
+      "notes": "logβ = -logKa3."
+    },
+    {
+      "species_id": "S016",
+      "formula": "H2Cit-",
+      "name": "Dihidrogenocitrato",
+      "charge": -1.0,
+      "log_beta": 11.157,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "CIT2+CIT3",
+      "source_logk": null,
+      "notes": "logβ = -(logKa2 + logKa3)."
+    },
+    {
+      "species_id": "S017",
+      "formula": "H3Cit",
+      "name": "Ácido cítrico",
+      "charge": 0.0,
+      "log_beta": 14.285,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "CIT1+CIT2+CIT3",
+      "source_logk": null,
+      "notes": "logβ = -(logKa1 + logKa2 + logKa3)."
+    }
+  ],
+  "composition": {
+    "S001": {
+      "001": 1.0
+    },
+    "S002": {
+      "001": -1.0
+    },
+    "S003": {
+      "002": 1.0
+    },
+    "S004": {
+      "001": 1.0,
+      "002": 1.0
+    },
+    "S005": {
+      "003": 1.0
+    },
+    "S006": {
+      "004": 1.0
+    },
+    "S007": {
+      "001": 1.0,
+      "004": 1.0
+    },
+    "S008": {
+      "005": 1.0
+    },
+    "S009": {
+      "006": 1.0
+    },
+    "S010": {
+      "007": 1.0
+    },
+    "S011": {
+      "001": 1.0,
+      "007": 1.0
+    },
+    "S012": {
+      "008": 1.0
+    },
+    "S013": {
+      "001": 1.0,
+      "008": 1.0
+    },
+    "S014": {
+      "009": 1.0
+    },
+    "S015": {
+      "001": 1.0,
+      "009": 1.0
+    },
+    "S016": {
+      "001": 2.0,
+      "009": 1.0
+    },
+    "S017": {
+      "001": 3.0,
+      "009": 1.0
+    }
+  },
+  "materials": [
+    {
+      "material_id": "M001",
+      "formula": "HF",
+      "name": "Ácido fluorídrico",
+      "input_model": "analytical_total",
+      "notes": "A entrada define F_total; a protonação é resolvida no equilíbrio."
+    },
+    {
+      "material_id": "M002",
+      "formula": "HCl",
+      "name": "Ácido clorídrico",
+      "input_model": "complete_dissociation",
+      "notes": "A entrada define Cl_total; HCl não é espécie de equilíbrio."
+    },
+    {
+      "material_id": "M003",
+      "formula": "NH4NO3",
+      "name": "Nitrato de amônio",
+      "input_model": "complete_dissociation",
+      "notes": "A entrada define NHx_total e NO3_total."
+    },
+    {
+      "material_id": "M004",
+      "formula": "NaHSO4",
+      "name": "Hidrogenossulfato de sódio",
+      "input_model": "complete_dissociation",
+      "notes": "A entrada define Na_total e SO4_total."
+    },
+    {
+      "material_id": "M005",
+      "formula": "HSO4-",
+      "name": "Hidrogenossulfato",
+      "input_model": "analytical_total",
+      "notes": "A entrada define SO4_total."
+    },
+    {
+      "material_id": "M006",
+      "formula": "NH4+",
+      "name": "Amônio",
+      "input_model": "analytical_total",
+      "notes": "A entrada define NHx_total."
+    },
+    {
+      "material_id": "M007",
+      "formula": "NaCl",
+      "name": "Cloreto de sódio",
+      "input_model": "complete_dissociation",
+      "notes": "A entrada define Na_total e Cl_total."
+    },
+    {
+      "material_id": "M008",
+      "formula": "NH3",
+      "name": "Amônia",
+      "input_model": "analytical_total",
+      "notes": "A entrada define NHx_total."
+    },
+    {
+      "material_id": "M009",
+      "formula": "CH3COOH",
+      "name": "Ácido acético",
+      "input_model": "analytical_total",
+      "notes": "A entrada define Acetate_total."
+    },
+    {
+      "material_id": "M010",
+      "formula": "NaOH",
+      "name": "Hidróxido de sódio",
+      "input_model": "complete_dissociation",
+      "notes": "A entrada define Na_total; OH- é calculado por Kw e carga."
+    },
+    {
+      "material_id": "M011",
+      "formula": "H3Cit",
+      "name": "Ácido cítrico",
+      "input_model": "analytical_total",
+      "notes": "A entrada define Citrate_total."
+    }
+  ],
+  "materialComposition": {
+    "M001": {
+      "002": 1.0
+    },
+    "M002": {
+      "003": 1.0
+    },
+    "M003": {
+      "004": 1.0,
+      "005": 1.0
+    },
+    "M004": {
+      "006": 1.0,
+      "007": 1.0
+    },
+    "M005": {
+      "007": 1.0
+    },
+    "M006": {
+      "004": 1.0
+    },
+    "M007": {
+      "006": 1.0,
+      "003": 1.0
+    },
+    "M008": {
+      "004": 1.0
+    },
+    "M009": {
+      "008": 1.0
+    },
+    "M010": {
+      "006": 1.0
+    },
+    "M011": {
+      "009": 1.0
+    }
+  }
+}

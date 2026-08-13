@@ -1,43 +1,175 @@
-const species = [
-  { formula: "H⁺", family: "Sistema", concentration: "9,2542 × 10⁻⁴", fraction: "—", role: "Componente livre" },
-  { formula: "OH⁻", family: "Sistema", concentration: "1,0806 × 10⁻¹¹", fraction: "—", role: "Autoionização" },
-  { formula: "CH₃COOH", family: "Acetato", concentration: "2,4533 × 10⁻²", fraction: "98,13%", role: "Protonada" },
-  { formula: "CH₃COO⁻", family: "Acetato", concentration: "4,6663 × 10⁻⁴", fraction: "1,87%", role: "Base livre" },
-  { formula: "H₃Cit", family: "Citrato", concentration: "5,4947 × 10⁻⁴", fraction: "54,95%", role: "Triprotonada" },
-  { formula: "H₂Cit⁻", family: "Citrato", concentration: "4,4221 × 10⁻⁴", fraction: "44,22%", role: "Diprotonada" },
-  { formula: "HCit²⁻", family: "Citrato", concentration: "8,2980 × 10⁻⁶", fraction: "0,83%", role: "Monoprotonada" },
-];
+"use client";
+
+import { useMemo, useState } from "react";
+
+import chemistryDatabase from "@/data/chemistry-database.json";
+import {
+  calculateEquilibrium,
+  type ChemistryDatabase,
+  type EquilibriumResult,
+  type QueryEntry,
+} from "@/lib/equilibrium";
 
 export const dynamic = "force-static";
 
-const distribution = [
-  { formula: "CH₃COOH", share: 98.13, className: "bar-blue" },
-  { formula: "CH₃COO⁻", share: 1.87, className: "bar-blue-light" },
-  { formula: "H₃Cit", share: 54.95, className: "bar-teal" },
-  { formula: "H₂Cit⁻", share: 44.22, className: "bar-teal-light" },
-  { formula: "HCit²⁻", share: 0.83, className: "bar-gray" },
-];
+type EditableEntry = {
+  id: number;
+  materialId: string;
+  concentration: string;
+};
+
+const database = chemistryDatabase as ChemistryDatabase;
+const protonComponentId = database.components.find(
+  (component) => component.balance_mode === "electroneutrality",
+)?.component_id;
+
+const superscriptMap: Record<string, string> = {
+  "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
+  "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
+  "+": "⁺", "-": "⁻",
+};
+
+function displayFormula(formula: string) {
+  const withSubscripts = formula.replace(/([A-Za-z)])(\d+)/g, (_, atom, digits: string) =>
+    atom + digits.replace(/\d/g, (digit) => "₀₁₂₃₄₅₆₇₈₉"[Number(digit)]),
+  );
+  return withSubscripts.replace(/([+-])(\d*)$/, (_, sign, digits: string) =>
+    (digits || "").split("").map((digit) => superscriptMap[digit]).join("") + superscriptMap[sign],
+  );
+}
+
+function parseConcentration(value: string) {
+  const normalized = value.trim().replace(",", ".");
+  if (!normalized) return Number.NaN;
+  return Number(normalized);
+}
+
+function toQueryEntries(entries: EditableEntry[]): QueryEntry[] {
+  const seen = new Set<string>();
+  return entries.map((entry) => {
+    if (seen.has(entry.materialId)) {
+      throw new Error("Cada componente deve aparecer uma única vez na consulta.");
+    }
+    seen.add(entry.materialId);
+    return {
+      materialId: entry.materialId,
+      concentration: parseConcentration(entry.concentration),
+    };
+  });
+}
+
+function scientific(value: number, digits = 4) {
+  if (value === 0) return "0";
+  const [mantissa, exponent] = value.toExponential(digits).split("e");
+  const exponentText = exponent
+    .replace("+", "")
+    .split("")
+    .map((character) => superscriptMap[character] ?? character)
+    .join("");
+  const [integerPart, decimalPart = ""] = mantissa.split(".");
+  const localizedMantissa = digits > 0
+    ? `${integerPart},${decimalPart.padEnd(digits, "0")}`
+    : integerPart;
+  return `${localizedMantissa} × 10${exponentText}`;
+}
+
+function familyForSpecies(speciesId: string) {
+  const composition = database.composition[speciesId];
+  const componentId = Object.keys(composition).find((id) => id !== protonComponentId);
+  return componentId
+    ? database.components.find((component) => component.component_id === componentId)?.name ?? "Sistema"
+    : "Sistema";
+}
+
+function formatDecimal(value: number, minimumFractionDigits: number, maximumFractionDigits: number) {
+  const fixed = value.toFixed(maximumFractionDigits);
+  const [integerPart, decimalPart = ""] = fixed.split(".");
+  const trimmedDecimal = decimalPart.replace(/0+$/, "").padEnd(minimumFractionDigits, "0");
+  return trimmedDecimal ? `${integerPart},${trimmedDecimal}` : integerPart;
+}
 
 export default function Home() {
+  const [entries, setEntries] = useState<EditableEntry[]>([]);
+  const [nextId, setNextId] = useState(1);
+  const [result, setResult] = useState<EquilibriumResult | null>(null);
+  const [error, setError] = useState("");
+
+  const materialById = useMemo(
+    () => new Map(database.materials.map((material) => [material.material_id, material])),
+    [],
+  );
+  const consultationName = entries
+    .map((entry) => materialById.get(entry.materialId)?.name)
+    .filter(Boolean)
+    .join(" + ") || "Nova consulta";
+
+  function calculate(entriesToCalculate: EditableEntry[]) {
+    try {
+      const calculated = calculateEquilibrium(database, toQueryEntries(entriesToCalculate));
+      setResult(calculated);
+      setError("");
+    } catch (calculationError) {
+      setError(calculationError instanceof Error ? calculationError.message : "Não foi possível calcular.");
+    }
+  }
+
+  function addEntry() {
+    const used = new Set(entries.map((entry) => entry.materialId));
+    const available = database.materials.find((material) => !used.has(material.material_id));
+    if (!available) return;
+    setEntries([...entries, { id: nextId, materialId: available.material_id, concentration: "" }]);
+    setNextId(nextId + 1);
+    setResult(null);
+    setError("");
+  }
+
+  function updateEntry(id: number, patch: Partial<EditableEntry>) {
+    const updatedEntries = entries.map((entry) =>
+      entry.id === id ? { ...entry, ...patch } : entry,
+    );
+    setEntries(updatedEntries);
+    setResult(null);
+    setError("");
+  }
+
+  function removeEntry(id: number) {
+    const updatedEntries = entries.filter((entry) => entry.id !== id);
+    setEntries(updatedEntries);
+    setResult(null);
+    setError("");
+  }
+
+  const familyTotals = new Map<string, number>();
+  for (const species of result?.selectedSpecies ?? []) {
+    const family = familyForSpecies(species.species_id);
+    if (family !== "Sistema") {
+      familyTotals.set(family, (familyTotals.get(family) ?? 0) + result.concentrations[species.species_id]);
+    }
+  }
+  const distributions = (result?.selectedSpecies ?? [])
+    .map((species) => {
+      const family = familyForSpecies(species.species_id);
+      const familyTotal = familyTotals.get(family) ?? 0;
+      return {
+        species,
+        family,
+        share: familyTotal && result ? (result.concentrations[species.species_id] / familyTotal) * 100 : 0,
+      };
+    })
+    .filter((item) => item.family !== "Sistema" && item.share >= 0.01);
+
   return (
     <main className="application-shell">
       <header className="app-header">
         <a className="tool-brand" href="#workspace" aria-label="Especiação aquosa — início">
           <span className="tool-mark" aria-hidden="true">Σ</span>
-          <span>
-            <strong>Especiação aquosa</strong>
-            <small>equilíbrio por componentes</small>
-          </span>
+          <span><strong>Especiação aquosa</strong><small>equilíbrio por componentes</small></span>
         </a>
-
         <div className="project-context" aria-label="Consulta atual">
-          <span>Consulta atual</span>
-          <strong>Ácido acético + ácido cítrico</strong>
+          <span>Consulta atual</span><strong>{consultationName}</strong>
         </div>
-
         <div className="header-status">
-          <span className="demo-badge"><i /> demonstração</span>
-          <button type="button" className="icon-button" aria-label="Ajuda sobre a interface">?</button>
+          <button type="button" className="icon-button" aria-label="Ajuda sobre a interface" title="Os cálculos são executados somente neste navegador.">?</button>
         </div>
       </header>
 
@@ -52,12 +184,8 @@ export default function Home() {
           <a href="#method"><span aria-hidden="true">A</span> Formulação</a>
           <a href="#database"><span aria-hidden="true">B</span> Base química</a>
         </nav>
-
         <div className="model-summary">
-          <div className="summary-heading">
-            <span>Modelo ativo</span>
-            <i aria-hidden="true" />
-          </div>
+          <div className="summary-heading"><span>Modelo ativo</span><i aria-hidden="true" /></div>
           <dl>
             <div><dt>Fase</dt><dd>Aquosa</dd></div>
             <div><dt>Atividade</dt><dd>Ideal</dd></div>
@@ -72,81 +200,56 @@ export default function Home() {
           <div>
             <p className="breadcrumb">Consulta <span>/</span> definição do sistema</p>
             <h1>Sistema de equilíbrio</h1>
-            <p>Configure a composição analítica e examine a distribuição calculada das espécies.</p>
+            <p>Selecione os materiais da base, informe as concentrações analíticas e calcule a especiação.</p>
           </div>
           <div className="workspace-actions">
-            <button type="button" className="secondary-button" disabled>Nova consulta</button>
-            <button type="button" className="primary-button" disabled>
-              Calcular
-              <small>em integração</small>
-            </button>
+            <button type="button" className="primary-button" onClick={() => calculate(entries)} disabled={entries.length === 0}>Calcular</button>
           </div>
         </div>
 
-        <div className="notice" role="note">
-          <span aria-hidden="true">i</span>
-          <p><strong>Prévia funcional da interface.</strong> Os dados abaixo pertencem a um caso de teste validado pelo núcleo científico. A edição e o recálculo serão conectados na próxima etapa.</p>
-        </div>
+        {error && <div className="notice notice-error" role="alert"><span aria-hidden="true">!</span><p>{error}</p></div>}
 
         <div className="work-grid">
           <div className="input-column">
             <section className="panel conditions-panel" aria-labelledby="conditions-title">
               <div className="panel-heading">
                 <div><span className="section-index">01</span><h2 id="conditions-title">Condições do sistema</h2></div>
-                <span className="panel-state">definidas</span>
               </div>
               <div className="field-grid">
-                <label>
-                  <span>Temperatura</span>
-                  <span className="input-shell"><input value="25,00" readOnly aria-label="Temperatura" /><small>°C</small></span>
-                </label>
-                <label>
-                  <span>Volume de referência</span>
-                  <span className="input-shell"><input value="1,000" readOnly aria-label="Volume de referência" /><small>L</small></span>
-                </label>
-                <label>
-                  <span>Modelo de atividade</span>
-                  <span className="select-shell"><select value="ideal" disabled aria-label="Modelo de atividade"><option value="ideal">Solução ideal</option></select></span>
-                </label>
+                <label><span>Temperatura</span><span className="input-shell"><input value="25,00" readOnly aria-label="Temperatura" /><small>°C</small></span></label>
+                <label><span>Volume de referência</span><span className="input-shell"><input value="1,000" readOnly aria-label="Volume de referência" /><small>L</small></span></label>
+                <label><span>Modelo de atividade</span><span className="select-shell"><select value="ideal" disabled aria-label="Modelo de atividade"><option value="ideal">Solução ideal</option></select></span></label>
               </div>
             </section>
 
             <section className="panel components-panel" id="components" aria-labelledby="components-title">
               <div className="panel-heading">
                 <div><span className="section-index">02</span><h2 id="components-title">Composição analítica</h2></div>
-                <button type="button" className="text-button" disabled>+ Adicionar componente</button>
+                <button type="button" className="text-button" onClick={addEntry} disabled={entries.length >= database.materials.length}>+ Adicionar componente</button>
               </div>
-
-              <div className="component-table" role="table" aria-label="Componentes analíticos da consulta">
+              <div className="component-table" role="table" aria-label="Materiais adicionados à consulta">
                 <div className="component-table-head" role="row">
-                  <span role="columnheader">Componente</span>
-                  <span role="columnheader">Forma adicionada</span>
+                  <span role="columnheader">Componente adicionado</span>
                   <span role="columnheader">Concentração</span>
                   <span role="columnheader">Unidade</span>
+                  <span role="columnheader"><span className="sr-only">Ações</span></span>
                 </div>
-                <div className="component-table-row" role="row">
-                  <span className="component-name" role="cell"><i>008</i><span><strong>Acetato</strong><small>CH₃COO⁻</small></span></span>
-                  <span role="cell">CH₃COOH</span>
-                  <span role="cell"><input value="0,025000" readOnly aria-label="Concentração de ácido acético" /></span>
-                  <span role="cell">mol/L</span>
-                </div>
-                <div className="component-table-row" role="row">
-                  <span className="component-name" role="cell"><i>009</i><span><strong>Citrato</strong><small>Cit³⁻</small></span></span>
-                  <span role="cell">H₃Cit</span>
-                  <span role="cell"><input value="0,001000" readOnly aria-label="Concentração de ácido cítrico" /></span>
-                  <span role="cell">mol/L</span>
-                </div>
-                <div className="component-table-row calculated" role="row">
-                  <span className="component-name" role="cell"><i>001</i><span><strong>Próton</strong><small>H⁺</small></span></span>
-                  <span role="cell">Determinado pelo balanço</span>
-                  <span role="cell">—</span>
-                  <span role="cell">—</span>
-                </div>
-              </div>
-
-              <div className="component-footnote">
-                <span>Σ</span>
-                <p>O componente H⁺ é uma variável livre do sistema. Sua concentração resulta simultaneamente dos balanços de massa e de carga.</p>
+                {entries.map((entry) => {
+                  const material = materialById.get(entry.materialId)!;
+                  return (
+                    <div className="component-table-row editable" role="row" key={entry.id}>
+                      <span className="material-select" role="cell">
+                        <select value={entry.materialId} onChange={(event) => updateEntry(entry.id, { materialId: event.target.value })} aria-label={`Componente da linha ${entry.id}`}>
+                          {database.materials.map((option) => <option value={option.material_id} key={option.material_id}>{displayFormula(option.formula)} — {option.name}</option>)}
+                        </select>
+                      </span>
+                      <span role="cell"><input inputMode="decimal" value={entry.concentration} onChange={(event) => updateEntry(entry.id, { concentration: event.target.value })} aria-label={`Concentração de ${material.name}`} /></span>
+                      <span role="cell">mol/L</span>
+                      <span role="cell"><button type="button" className="remove-button" onClick={() => removeEntry(entry.id)} aria-label={`Remover ${material.name}`} title={`Remover ${material.name}`}>×</button></span>
+                    </div>
+                  );
+                })}
+                {entries.length === 0 && <div className="empty-entry">Nenhum componente adicionado.</div>}
               </div>
             </section>
           </div>
@@ -154,62 +257,42 @@ export default function Home() {
           <aside className="results-column" id="results" aria-labelledby="results-title">
             <section className="panel result-card">
               <div className="panel-heading compact">
-                <div><span className="section-index">03</span><h2 id="results-title">Estado calculado</h2></div>
-                <span className="converged"><i /> convergiu</span>
+                <div><span className="section-index">03</span><h2 id="results-title">Resultado do equilíbrio</h2></div>
+                {result && <span className="converged"><i /> convergiu</span>}
               </div>
-
-              <div className="ph-result">
-                <span>pH de equilíbrio</span>
-                <strong>3,033672</strong>
-                <code>[H⁺] = 9,2542 × 10⁻⁴ mol/L</code>
-              </div>
-
-              <dl className="diagnostics">
-                <div><dt>Resíduo de carga</dt><dd>1,05 × 10⁻¹⁸ <small>mol/L</small></dd></div>
-                <div><dt>Produto iônico da água</dt><dd>1,000 × 10⁻¹⁴</dd></div>
-                <div><dt>Iterações</dt><dd>7</dd></div>
-                <div><dt>Espécies ativas</dt><dd>9</dd></div>
-              </dl>
+              {result ? <>
+                <div className="ph-result"><span>pH de equilíbrio</span><strong>{formatDecimal(result.pH, 6, 6)}</strong><code>[H⁺] = {scientific(result.hydrogenConcentration)} mol/L</code></div>
+                <dl className="diagnostics">
+                  <div><dt>Resíduo de carga</dt><dd>{scientific(Math.abs(result.chargeResidual), 2)} <small>mol/L</small></dd></div>
+                  <div><dt>Produto iônico da água</dt><dd>{scientific(result.calculatedKw, 3)}</dd></div>
+                  <div><dt>Iterações</dt><dd>{result.iterations}</dd></div>
+                  <div><dt>Espécies ativas</dt><dd>{result.selectedSpecies.length}</dd></div>
+                </dl>
+              </> : <div className="empty-result">—</div>}
             </section>
 
-            <section className="panel distribution-card" aria-labelledby="distribution-title">
-              <div className="panel-heading compact">
-                <div><h2 id="distribution-title">Distribuição por família</h2></div>
-                <span className="unit-label">fração molar</span>
-              </div>
+            {result && <section className="panel distribution-card" aria-labelledby="distribution-title">
+              <div className="panel-heading compact"><div><h2 id="distribution-title">Distribuição por família</h2></div><span className="unit-label">fração molar</span></div>
               <div className="distribution-list">
-                {distribution.map((item) => (
-                  <div className="distribution-row" key={item.formula}>
-                    <div><strong>{item.formula}</strong><span>{item.share.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}%</span></div>
-                    <span className="bar-track"><i className={item.className} style={{ width: `${Math.max(item.share, 1.2)}%` }} /></span>
+                {distributions.map((item, index) => (
+                  <div className="distribution-row" key={item.species.species_id}>
+                    <div><strong>{displayFormula(item.species.formula)}</strong><span>{formatDecimal(item.share, 2, 2)}%</span></div>
+                    <span className="bar-track"><i className={`bar-tone-${index % 5}`} style={{ width: `${Math.max(item.share, 1.2)}%` }} /></span>
                   </div>
                 ))}
               </div>
-            </section>
+            </section>}
           </aside>
         </div>
 
         <section className="panel species-panel" id="species" aria-labelledby="species-title">
-          <div className="panel-heading">
-            <div><span className="section-index">04</span><h2 id="species-title">Concentrações de equilíbrio</h2></div>
-            <div className="table-tools"><span>7 espécies principais</span><button type="button" disabled>Exportar tabela</button></div>
-          </div>
-          <div className="species-table-wrap">
+          <div className="panel-heading"><div><span className="section-index">04</span><h2 id="species-title">Concentrações de equilíbrio</h2></div>{result && <div className="table-tools"><span>{result.selectedSpecies.length} espécies ativas</span></div>}</div>
+          {result ? <div className="species-table-wrap">
             <table>
-              <thead><tr><th>Espécie</th><th>Família</th><th>Papel no sistema</th><th>Fração na família</th><th>Concentração (mol/L)</th></tr></thead>
-              <tbody>
-                {species.map((item) => (
-                  <tr key={item.formula}>
-                    <td><strong>{item.formula}</strong></td>
-                    <td>{item.family}</td>
-                    <td>{item.role}</td>
-                    <td>{item.fraction}</td>
-                    <td><code>{item.concentration}</code></td>
-                  </tr>
-                ))}
-              </tbody>
+              <thead><tr><th>Espécie</th><th>Nome</th><th>Família</th><th>Carga</th><th>Concentração (mol/L)</th></tr></thead>
+              <tbody>{result.selectedSpecies.map((species) => <tr key={species.species_id}><td><strong>{displayFormula(species.formula)}</strong></td><td>{species.name}</td><td>{familyForSpecies(species.species_id)}</td><td>{species.charge > 0 ? `+${species.charge}` : species.charge}</td><td><code>{scientific(result.concentrations[species.species_id])}</code></td></tr>)}</tbody>
             </table>
-          </div>
+          </div> : <div className="empty-result table-empty">—</div>}
         </section>
 
         <section className="method-strip" id="method" aria-label="Formulação do modelo">
@@ -219,9 +302,7 @@ export default function Home() {
         </section>
 
         <footer className="app-footer" id="database">
-          <span>Base química local · 9 componentes</span>
-          <span>Modelo acadêmico em desenvolvimento</span>
-          <span>Resultados não armazenados</span>
+          <span>Base química · {database.components.length} componentes · {database.materials.length} materiais</span><span>Modelo ácido-base ideal</span>
         </footer>
       </section>
     </main>
