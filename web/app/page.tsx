@@ -99,10 +99,6 @@ export default function Home() {
     () => new Map(database.materials.map((material) => [material.material_id, material])),
     [],
   );
-  const consultationName = entries
-    .map((entry) => materialById.get(entry.materialId)?.name)
-    .filter(Boolean)
-    .join(" + ") || "Nova consulta";
 
   function calculate(entriesToCalculate: EditableEntry[]) {
     try {
@@ -164,14 +160,8 @@ export default function Home() {
       <header className="app-header">
         <a className="tool-brand" href="#workspace" aria-label="Especiação aquosa — início">
           <span className="tool-mark" aria-hidden="true">Σ</span>
-          <span><strong>Especiação aquosa</strong><small>equilíbrio por componentes</small></span>
+          <strong>Especiação aquosa</strong>
         </a>
-        <div className="project-context" aria-label="Consulta atual">
-          <span>Consulta atual</span><strong>{consultationName}</strong>
-        </div>
-        <div className="header-status">
-          <button type="button" className="icon-button" aria-label="Ajuda sobre a interface" title="Os cálculos são executados somente neste navegador.">?</button>
-        </div>
       </header>
 
       <aside className="app-sidebar" aria-label="Resumo do modelo">
@@ -188,11 +178,7 @@ export default function Home() {
 
       <section className="workspace" id="workspace">
         <div className="workspace-heading">
-          <div>
-            <p className="breadcrumb">Consulta <span>/</span> definição do sistema</p>
-            <h1>Sistema de equilíbrio</h1>
-            <p>Selecione os materiais da base, informe as concentrações analíticas e calcule a especiação.</p>
-          </div>
+          <h1>Sistema de equilíbrio</h1>
         </div>
 
         {error && <div className="notice notice-error" role="alert"><span aria-hidden="true">!</span><p>{error}</p></div>}
@@ -284,9 +270,6 @@ export default function Home() {
           </div> : <div className="empty-result table-empty">—</div>}
         </section>
 
-        <footer className="app-footer">
-          <span>Base química · {database.components.length} componentes · {database.materials.length} materiais</span><span>Modelo ácido-base ideal</span>
-        </footer>
       </section>
     </main>
   );

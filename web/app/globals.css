@@ -65,8 +65,7 @@ select:focus-visible {
   z-index: 30;
   top: 0;
   grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: 224px 1fr auto;
+  display: flex;
   align-items: center;
   min-height: 68px;
   border-bottom: 1px solid #0f1b26;
@@ -76,6 +75,7 @@ select:focus-visible {
 
 .tool-brand {
   display: flex;
+  width: 224px;
   align-items: center;
   gap: 11px;
   align-self: stretch;
@@ -95,39 +95,7 @@ select:focus-visible {
   font-size: 1.18rem;
 }
 
-.tool-brand > span:last-child { display: grid; line-height: 1.1; }
 .tool-brand strong { font-size: 0.86rem; font-weight: 650; }
-.tool-brand small {
-  margin-top: 5px;
-  color: rgba(255, 255, 255, 0.58);
-  font-family: var(--mono);
-  font-size: 0.49rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.project-context {
-  display: flex;
-  align-items: baseline;
-  gap: 11px;
-  padding-left: 24px;
-}
-
-.project-context span {
-  color: rgba(255, 255, 255, 0.52);
-  font-size: 0.64rem;
-}
-
-.project-context strong { font-size: 0.73rem; font-weight: 550; }
-
-.header-status {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding-right: 18px;
-}
-
-.demo-badge,
 .converged {
   display: inline-flex;
   align-items: center;
@@ -138,14 +106,6 @@ select:focus-visible {
   text-transform: uppercase;
 }
 
-.demo-badge {
-  padding: 6px 9px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 4px;
-  color: rgba(255, 255, 255, 0.72);
-}
-
-.demo-badge i,
 .converged i,
 .summary-heading i {
   width: 7px;
@@ -153,17 +113,6 @@ select:focus-visible {
   border-radius: 50%;
   background: #58bd8b;
   box-shadow: 0 0 0 3px rgba(88, 189, 139, 0.14);
-}
-
-.icon-button {
-  width: 29px;
-  height: 29px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 50%;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.75);
-  cursor: help;
-  font-size: 0.72rem;
 }
 
 .app-sidebar {
@@ -214,17 +163,6 @@ select:focus-visible {
   margin: 0 auto;
 }
 
-.breadcrumb {
-  margin: 0 0 8px;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.51rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.breadcrumb span { padding: 0 5px; color: #a6b1bb; }
-
 .workspace-heading h1 {
   margin: 0;
   color: #192a39;
@@ -232,12 +170,6 @@ select:focus-visible {
   font-weight: 650;
   letter-spacing: -0.035em;
   line-height: 1.1;
-}
-
-.workspace-heading > div:first-child > p:last-child {
-  margin: 7px 0 0;
-  color: var(--muted);
-  font-size: 0.75rem;
 }
 
 .secondary-button,
@@ -668,24 +600,9 @@ select:focus-visible {
 .species-table-wrap td strong { color: var(--ink); font-family: var(--mono); font-size: 0.64rem; }
 .species-table-wrap td code { color: var(--ink); font-family: var(--mono); font-size: 0.59rem; }
 
-.app-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  max-width: 1500px;
-  min-height: 63px;
-  margin: 18px auto 0;
-  border-top: 1px solid var(--line);
-  color: #7c8994;
-  font-family: var(--mono);
-  font-size: 0.47rem;
-  text-transform: uppercase;
-}
-
 @media (max-width: 1050px) {
   .application-shell { grid-template-columns: 184px minmax(0, 1fr); }
-  .app-header { grid-template-columns: 184px 1fr auto; }
+  .tool-brand { width: 184px; }
   .work-grid { grid-template-columns: 1fr; }
   .results-column { grid-template-columns: 1fr 1fr; }
   .component-table-head,
@@ -695,11 +612,8 @@ select:focus-visible {
 @media (max-width: 760px) {
   html { scroll-padding-top: 70px; }
   .application-shell { display: block; }
-  .app-header { grid-template-columns: 1fr auto; min-height: 62px; }
-  .tool-brand { padding-left: 13px; border-right: 0; }
-  .project-context { display: none; }
-  .header-status { padding-right: 12px; }
-  .demo-badge { display: none; }
+  .app-header { min-height: 62px; }
+  .tool-brand { width: auto; padding-left: 13px; border-right: 0; }
   .app-sidebar { display: none; }
   .workspace { padding: 20px 12px 0; }
   .workspace-heading { align-items: flex-start; flex-direction: column; gap: 17px; }
@@ -712,7 +626,6 @@ select:focus-visible {
   .component-table-row { min-width: 690px; }
   .panel-heading { padding: 0 13px; }
   .table-tools > span { display: none; }
-  .app-footer { align-items: flex-start; flex-direction: column; justify-content: center; padding: 19px 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
