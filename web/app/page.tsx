@@ -93,6 +93,7 @@ export default function Home() {
   const [nextId, setNextId] = useState(1);
   const [result, setResult] = useState<EquilibriumResult | null>(null);
   const [error, setError] = useState("");
+  const [activityModel, setActivityModel] = useState("ideal");
 
   const materialById = useMemo(
     () => new Map(database.materials.map((material) => [material.material_id, material])),
@@ -202,23 +203,18 @@ export default function Home() {
             <h1>Sistema de equilíbrio</h1>
             <p>Selecione os materiais da base, informe as concentrações analíticas e calcule a especiação.</p>
           </div>
-          <div className="workspace-actions">
-            <button type="button" className="primary-button" onClick={() => calculate(entries)} disabled={entries.length === 0}>Calcular</button>
-          </div>
         </div>
 
         {error && <div className="notice notice-error" role="alert"><span aria-hidden="true">!</span><p>{error}</p></div>}
 
         <div className="work-grid">
           <div className="input-column">
-            <section className="panel conditions-panel" aria-labelledby="conditions-title">
-              <div className="panel-heading">
+            <section className="panel conditions-panel compact-conditions" aria-labelledby="conditions-title">
+              <div className="conditions-row">
                 <div><span className="section-index">01</span><h2 id="conditions-title">Condições do sistema</h2></div>
-              </div>
-              <div className="field-grid">
                 <label><span>Temperatura</span><span className="input-shell"><input value="25,00" readOnly aria-label="Temperatura" /><small>°C</small></span></label>
                 <label><span>Volume de referência</span><span className="input-shell"><input value="1,000" readOnly aria-label="Volume de referência" /><small>L</small></span></label>
-                <label><span>Modelo de atividade</span><span className="select-shell"><select value="ideal" disabled aria-label="Modelo de atividade"><option value="ideal">Solução ideal</option></select></span></label>
+                <label><span>Modelo de atividade</span><span className="select-shell"><select value={activityModel} onChange={(event) => setActivityModel(event.target.value)} aria-label="Modelo de atividade"><option value="ideal">Solução ideal</option></select></span></label>
               </div>
             </section>
 
@@ -250,6 +246,9 @@ export default function Home() {
                   );
                 })}
                 {entries.length === 0 && <div className="empty-entry">Nenhum componente adicionado.</div>}
+              </div>
+              <div className="component-actions">
+                <button type="button" className="primary-button" onClick={() => calculate(entries)} disabled={entries.length === 0}>Calcular</button>
               </div>
             </section>
           </div>

@@ -292,8 +292,6 @@ select:focus-visible {
   font-size: 0.75rem;
 }
 
-.workspace-actions { display: flex; align-items: center; gap: 9px; }
-
 .secondary-button,
 .primary-button,
 .text-button,
@@ -434,15 +432,33 @@ select:focus-visible {
   text-transform: uppercase;
 }
 
-.field-grid {
+.conditions-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 15px;
-  padding: 17px;
+  grid-template-columns: minmax(150px, 0.9fr) repeat(3, minmax(135px, 1fr));
+  align-items: end;
+  gap: 12px;
+  padding: 11px 14px;
 }
 
-.field-grid label { display: grid; gap: 6px; }
-.field-grid label > span:first-child { color: var(--muted); font-size: 0.56rem; font-weight: 600; }
+.conditions-row > div { display: flex; align-items: center; gap: 9px; align-self: center; }
+.conditions-row h2 { margin: 0; font-size: 0.7rem; font-weight: 650; }
+.conditions-row label { display: grid; gap: 4px; }
+.conditions-row label > span:first-child { color: var(--muted); font-size: 0.52rem; font-weight: 600; }
+
+.compact-conditions {
+  border-color: #d5dde4;
+  background: #f8fafb;
+  box-shadow: none;
+}
+
+.compact-conditions .input-shell,
+.compact-conditions .select-shell {
+  min-height: 31px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.compact-conditions .input-shell input,
+.compact-conditions .select-shell select { height: 29px; }
 
 .input-shell,
 .select-shell {
@@ -566,6 +582,7 @@ select:focus-visible {
   border-radius: 3px;
   background: white;
   color: var(--ink);
+  cursor: pointer;
   font-size: 0.62rem;
 }
 
@@ -595,6 +612,16 @@ select:focus-visible {
 .empty-entry { border-bottom: 1px solid var(--line); }
 .empty-result { display: grid; min-height: 154px; place-items: center; font-family: var(--mono); }
 .empty-result.table-empty { min-height: 92px; }
+
+.component-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 17px;
+  border-top: 1px solid var(--line);
+  background: #fbfcfd;
+}
+
+.component-actions .primary-button { min-width: 118px; }
 
 .sr-only {
   position: absolute;
@@ -745,10 +772,9 @@ select:focus-visible {
   .app-sidebar { display: none; }
   .workspace { padding: 20px 12px 0; }
   .workspace-heading { align-items: flex-start; flex-direction: column; gap: 17px; }
-  .workspace-actions { width: 100%; }
-  .workspace-actions button { flex: 1; }
   .notice { align-items: flex-start; }
-  .field-grid { grid-template-columns: 1fr; }
+  .conditions-row { grid-template-columns: 1fr; }
+  .conditions-row > div { margin-bottom: 3px; }
   .results-column { grid-template-columns: 1fr; }
   .component-table { overflow-x: auto; }
   .component-table-head,

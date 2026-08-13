@@ -16,6 +16,7 @@ test("gera a ferramenta como uma página estática", async () => {
   assert.match(html, /Concentrações de equilíbrio/);
   assert.match(html, /Adicionar componente/);
   assert.match(html, /Calcular/);
+  assert.doesNotMatch(html, /aria-label="Modelo de atividade"[^>]*disabled/);
   assert.doesNotMatch(html, /Restaurar exemplo|Carregar exemplo/);
   assert.doesNotMatch(html, /react-loading-skeleton|Starter Project/);
 });
