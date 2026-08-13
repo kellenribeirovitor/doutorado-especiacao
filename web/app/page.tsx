@@ -174,17 +174,7 @@ export default function Home() {
         </div>
       </header>
 
-      <aside className="app-sidebar" aria-label="Navegação da ferramenta">
-        <nav>
-          <p>Consulta</p>
-          <a className="active" href="#workspace"><span aria-hidden="true">01</span> Sistema</a>
-          <a href="#components"><span aria-hidden="true">02</span> Componentes</a>
-          <a href="#results"><span aria-hidden="true">03</span> Resultados</a>
-          <a href="#species"><span aria-hidden="true">04</span> Espécies</a>
-          <p>Referência</p>
-          <a href="#method"><span aria-hidden="true">A</span> Formulação</a>
-          <a href="#database"><span aria-hidden="true">B</span> Base química</a>
-        </nav>
+      <aside className="app-sidebar" aria-label="Resumo do modelo">
         <div className="model-summary">
           <div className="summary-heading"><span>Modelo ativo</span><i aria-hidden="true" /></div>
           <dl>
@@ -294,13 +284,7 @@ export default function Home() {
           </div> : <div className="empty-result table-empty">—</div>}
         </section>
 
-        <section className="method-strip" id="method" aria-label="Formulação do modelo">
-          <div><span>Relação de formação</span><code>log Cᵢ = log βᵢ + Σⱼ νᵢⱼ log cⱼ</code></div>
-          <div><span>Balanço de componente</span><code>Tⱼ = Σᵢ νᵢⱼ Cᵢ</code></div>
-          <div><span>Eletroneutralidade</span><code>Σᵢ zᵢ Cᵢ = 0</code></div>
-        </section>
-
-        <footer className="app-footer" id="database">
+        <footer className="app-footer">
           <span>Base química · {database.components.length} componentes · {database.materials.length} materiais</span><span>Modelo ácido-base ideal</span>
         </footer>
       </section>
