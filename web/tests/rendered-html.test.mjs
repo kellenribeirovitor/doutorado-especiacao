@@ -18,8 +18,10 @@ test("gera a ferramenta como uma página estática", async () => {
   assert.match(html, /Concentrações de equilíbrio/);
   assert.match(html, /Adicionar componente/);
   assert.match(html, /Calcular/);
-  assert.match(html, /Modelo ativo/);
+  assert.doesNotMatch(html, /Modelo ativo/);
   assert.match(html, /Tipos de equilíbrio/);
+  assert.match(html, /Condições do sistema/);
+  assert.match(html, /Distribuição/);
   assert.match(html, /Ácido–base/);
   assert.match(html, /Complexação/);
   assert.match(html, /Redox/);

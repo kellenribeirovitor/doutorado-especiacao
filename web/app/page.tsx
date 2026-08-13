@@ -23,12 +23,15 @@ type EditableEntry = {
 const equilibriumOptions: Array<{
   id: EquilibriumType;
   label: string;
+  symbol: string;
 }> = [
-  { id: "acid_base", label: "Ácido–base" },
-  { id: "complexation", label: "Complexação" },
-  { id: "redox", label: "Redox" },
-  { id: "precipitation", label: "Precipitação" },
+  { id: "acid_base", label: "Ácido–base", symbol: "H⁺" },
+  { id: "complexation", label: "Complexação", symbol: "M" },
+  { id: "redox", label: "Redox", symbol: "e⁻" },
+  { id: "precipitation", label: "Precipitação", symbol: "s↓" },
 ];
+
+const distributionColors = ["#0d6fdc", "#2eb5ae", "#7398c8", "#64c7c0", "#8b9caf"];
 
 const database = chemistryDatabase as ChemistryDatabase;
 const protonComponentId = database.components.find(
@@ -182,66 +185,85 @@ export default function Home() {
     })
     .filter((item) => item.family !== "Sistema" && item.share >= 0.01);
 
+  const distributionGroups = [...new Set(distributions.map((item) => item.family))].map((family) => {
+    const items = distributions.filter((item) => item.family === family);
+    const chart = `conic-gradient(${items.map((item, index) => {
+      const start = items.slice(0, index).reduce((sum, current) => sum + current.share, 0);
+      return `${distributionColors[index % distributionColors.length]} ${start}% ${start + item.share}%`;
+    }).join(", ")})`;
+    return { family, items, chart };
+  });
+
+  const steps = [
+    { number: "01", label: "Tipos de equilíbrio", target: "#equilibrium-types" },
+    { number: "02", label: "Condições", target: "#conditions" },
+    { number: "03", label: "Composição", target: "#components" },
+    { number: "04", label: "Resultado", target: "#results" },
+    { number: "05", label: "Distribuição", target: result ? "#distribution" : "#results" },
+    { number: "06", label: "Concentrações", target: "#species" },
+  ];
+
   return (
     <main className="application-shell">
       <header className="app-header">
         <a className="tool-brand" href="#workspace" aria-label="Especiação Química em Solução Aquosa — início">
-          <span className="tool-mark" aria-hidden="true">Σ</span>
+          <span className="tool-mark" aria-hidden="true"><i /><i /><i /><i /><i /><i /></span>
           <strong>Especiação Química em Solução Aquosa</strong>
         </a>
+        <nav className="primary-navigation" aria-label="Seções principais">
+          <a className="active" href="#workspace"><span aria-hidden="true">⇌</span>Sistema de equilíbrio</a>
+        </nav>
       </header>
-
-      <aside className="app-sidebar" aria-label="Resumo do modelo">
-        <div className="model-summary">
-          <div className="summary-heading"><span>Modelo ativo</span><i aria-hidden="true" /></div>
-          <dl>
-            <div><dt>Fase</dt><dd>Aquosa</dd></div>
-            <div><dt>Atividade</dt><dd>Ideal</dd></div>
-            <div><dt>Temperatura</dt><dd>25 °C</dd></div>
-            <div><dt>Solvente</dt><dd>H₂O</dd></div>
-          </dl>
-        </div>
-      </aside>
 
       <section className="workspace" id="workspace">
         <div className="workspace-heading">
           <h1>Sistema de equilíbrio</h1>
         </div>
 
+        <nav className="step-navigation" aria-label="Etapas da análise">
+          {steps.map((step, index) => <a className={index === 0 ? "active" : ""} href={step.target} key={step.number}><span>{step.number}</span>{step.label}</a>)}
+        </nav>
+
         {error && <div className="notice notice-error" role="alert"><span aria-hidden="true">!</span><p>{error}</p></div>}
 
         <div className="work-grid">
           <div className="input-column">
-            <section className="panel equilibrium-types-panel" aria-labelledby="equilibrium-types-title">
-              <div className="equilibrium-types-heading">
-                <span className="section-index">01</span>
-                <h2 id="equilibrium-types-title">Tipos de equilíbrio</h2>
-              </div>
-              <div className="equilibrium-options">
-                {equilibriumOptions.map((option) => {
-                  const available = SUPPORTED_EQUILIBRIUM_TYPES.includes(option.id);
-                  return (
-                    <label className={available ? "" : "unavailable"} key={option.id} title={available ? undefined : "Ainda não disponível"}>
-                      <input
-                        type="checkbox"
-                        checked={equilibriumTypes.includes(option.id)}
-                        disabled={!available}
-                        onChange={() => toggleEquilibriumType(option.id)}
-                      />
-                      <span>{option.label}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </section>
+          <section className="panel equilibrium-panel" id="equilibrium-types" aria-labelledby="equilibrium-types-title">
+            <div className="panel-heading">
+              <div><span className="section-index">01</span><h2 id="equilibrium-types-title">Tipos de equilíbrio</h2></div>
+            </div>
+            <fieldset className="equilibrium-fieldset">
+                <legend className="sr-only">Tipos de equilíbrio</legend>
+                <div className="equilibrium-options">
+                  {equilibriumOptions.map((option) => {
+                    const available = SUPPORTED_EQUILIBRIUM_TYPES.includes(option.id);
+                    return (
+                      <label className={available ? "" : "unavailable"} key={option.id} title={available ? undefined : "Ainda não disponível"}>
+                        <input
+                          type="checkbox"
+                          checked={equilibriumTypes.includes(option.id)}
+                          disabled={!available}
+                          onChange={() => toggleEquilibriumType(option.id)}
+                        />
+                        <i aria-hidden="true">{option.symbol}</i>
+                        <span>{option.label}</span>
+                        {equilibriumTypes.includes(option.id) && <b aria-hidden="true">✓</b>}
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+          </section>
 
-            <section className="panel conditions-panel compact-conditions" aria-labelledby="conditions-title">
-              <div className="conditions-row">
-                <div><span className="section-index">02</span><h2 id="conditions-title">Condições do sistema</h2></div>
-                <label><span>Temperatura</span><span className="input-shell"><input value="25,00" readOnly aria-label="Temperatura" /><small>°C</small></span></label>
-                <label><span>Modelo de atividade</span><span className="select-shell"><select value={activityModel} onChange={(event) => setActivityModel(event.target.value)} aria-label="Modelo de atividade"><option value="ideal">Solução ideal</option></select></span></label>
-              </div>
-            </section>
+          <section className="panel conditions-panel" id="conditions" aria-labelledby="conditions-title">
+            <div className="panel-heading">
+              <div><span className="section-index">02</span><h2 id="conditions-title">Condições do sistema</h2></div>
+            </div>
+            <div className="conditions-content">
+              <label className="setup-field"><span>Temperatura</span><span className="input-shell"><input value="25,00" readOnly aria-label="Temperatura" /><small>°C</small></span></label>
+              <label className="setup-field"><span>Modelo de atividade</span><span className="select-shell"><select value={activityModel} onChange={(event) => setActivityModel(event.target.value)} aria-label="Modelo de atividade"><option value="ideal">Solução ideal</option></select></span></label>
+            </div>
+          </section>
 
             <section className="panel components-panel" id="components" aria-labelledby="components-title">
               <div className="panel-heading">
@@ -295,22 +317,30 @@ export default function Home() {
               </> : <div className="empty-result">—</div>}
             </section>
 
-            {result && <section className="panel distribution-card" aria-labelledby="distribution-title">
-              <div className="panel-heading compact"><div><h2 id="distribution-title">Distribuição por família</h2></div><span className="unit-label">fração molar</span></div>
-              <div className="distribution-list">
-                {distributions.map((item, index) => (
-                  <div className="distribution-row" key={item.species.species_id}>
-                    <div><strong>{displayFormula(item.species.formula)}</strong><span>{formatDecimal(item.share, 2, 2)}%</span></div>
-                    <span className="bar-track"><i className={`bar-tone-${index % 5}`} style={{ width: `${Math.max(item.share, 1.2)}%` }} /></span>
+            {result && <section className="panel distribution-panel" id="distribution" aria-labelledby="distribution-title">
+              <div className="panel-heading compact"><div><span className="section-index">05</span><h2 id="distribution-title">Distribuição por família</h2></div></div>
+              <div className="distribution-content">
+                {distributionGroups.map((group) => <div className="distribution-group" key={group.family}>
+                  <span className="distribution-chart" style={{ background: group.chart }} aria-hidden="true"><i /></span>
+                  <div className="distribution-details">
+                    <strong className="distribution-family">{group.family}</strong>
+                    <div className="distribution-list">
+                      {group.items.map((item, index) => (
+                        <div className="distribution-row" key={item.species.species_id}>
+                          <div><strong><i style={{ background: distributionColors[index % distributionColors.length] }} />{displayFormula(item.species.formula)}</strong><span>{formatDecimal(item.share, 2, 2)}%</span></div>
+                          <span className="bar-track"><i style={{ width: `${Math.max(item.share, 1.2)}%`, background: distributionColors[index % distributionColors.length] }} /></span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                </div>)}
               </div>
             </section>}
           </aside>
         </div>
 
         <section className="panel species-panel" id="species" aria-labelledby="species-title">
-          <div className="panel-heading"><div><span className="section-index">05</span><h2 id="species-title">Concentrações de equilíbrio</h2></div>{result && <div className="table-tools"><span>{result.selectedSpecies.length} espécies ativas</span></div>}</div>
+          <div className="panel-heading"><div><span className="section-index">06</span><h2 id="species-title">Concentrações de equilíbrio</h2></div>{result && <div className="table-tools"><span>{result.selectedSpecies.length} espécies ativas</span></div>}</div>
           {result ? <div className="species-table-wrap">
             <table>
               <thead><tr><th>Espécie</th><th>Nome</th><th>Família</th><th>Carga</th><th>Concentração (mol/L)</th></tr></thead>
