@@ -34,13 +34,22 @@ export type ChemistryDatabase = {
   species: SpeciesRow[];
   composition: Record<string, Record<string, number>>;
   materials: MaterialRow[];
-  materialComposition: Record<string, Record<string, number>>;
+  materialSpecies: Record<string, Record<string, number>>;
 };
 
-export type QueryEntry = {
+export type MaterialQueryEntry = {
+  entryType?: "material";
   materialId: string;
   concentration: number;
 };
+
+export type SpeciesQueryEntry = {
+  entryType: "species";
+  speciesId: string;
+  concentration: number;
+};
+
+export type QueryEntry = MaterialQueryEntry | SpeciesQueryEntry;
 
 export type EquilibriumType = "acid_base" | "complexation" | "redox" | "precipitation";
 
@@ -68,40 +77,158 @@ export type EquilibriumResult = {
   chargeResidual: number;
   maxAbsResidual: number;
   concentrations: Record<string, number>;
+  initialSpecies: Record<string, number>;
+  initialChargeResidual: number;
   componentTotals: Record<string, number>;
   activeComponents: ComponentRow[];
   selectedSpecies: SpeciesRow[];
 };
 
-const MIN_LOG_CONCENTRATION = -30;
-const MAX_LOG_CONCENTRATION = 2;
+const MIN_LOG_HYDROGEN = -100;
+const MAX_LOG_HYDROGEN = 100;
 
-function clamp(value: number, minimum: number, maximum: number) {
-  return Math.min(maximum, Math.max(minimum, value));
-}
-
-function componentTotalsFromEntries(
+function initialSpeciesFromEntries(
   database: ChemistryDatabase,
   entries: QueryEntry[],
 ) {
   const materialById = new Map(
     database.materials.map((material) => [material.material_id, material]),
   );
-  const totals: Record<string, number> = {};
+  const speciesById = new Map(
+    database.species.map((species) => [species.species_id, species]),
+  );
+  const initialSpecies: Record<string, number> = {};
+  let requiresChargeValidation = false;
 
   for (const entry of entries) {
-    if (!Number.isFinite(entry.concentration) || entry.concentration <= 0) {
-      throw new Error("Informe concentrações maiores que zero para todos os componentes.");
+    if (!Number.isFinite(entry.concentration) || entry.concentration < 0) {
+      throw new Error("Informe concentrações maiores ou iguais a zero para todas as entradas.");
     }
-    const material = materialById.get(entry.materialId);
-    if (!material) throw new Error(`Material não encontrado na base: ${entry.materialId}.`);
-    const mapping = database.materialComposition[material.material_id];
-    if (!mapping) throw new Error(`Material sem composição analítica: ${material.formula}.`);
-    for (const [componentId, coefficient] of Object.entries(mapping)) {
-      totals[componentId] = (totals[componentId] ?? 0) + coefficient * entry.concentration;
+
+    const mapping = "speciesId" in entry
+      ? (() => {
+          requiresChargeValidation = true;
+          if (!speciesById.has(entry.speciesId)) {
+            throw new Error(`Espécie não encontrada na base: ${entry.speciesId}.`);
+          }
+          return { [entry.speciesId]: 1 };
+        })()
+      : (() => {
+          const material = materialById.get(entry.materialId);
+          if (!material) {
+            throw new Error(`Material não encontrado na base: ${entry.materialId}.`);
+          }
+          const decomposition = database.materialSpecies[material.material_id];
+          if (!decomposition) {
+            throw new Error(`Material sem decomposição em espécies: ${material.formula}.`);
+          }
+          return decomposition;
+        })();
+
+    for (const [speciesId, coefficient] of Object.entries(mapping)) {
+      initialSpecies[speciesId] = (
+        initialSpecies[speciesId] ?? 0
+      ) + coefficient * entry.concentration;
+    }
+  }
+  return { initialSpecies, requiresChargeValidation };
+}
+
+function initialChargeDiagnostics(
+  database: ChemistryDatabase,
+  initialSpecies: Record<string, number>,
+) {
+  const speciesById = new Map(
+    database.species.map((species) => [species.species_id, species]),
+  );
+  let residual = 0;
+  let scale = 0;
+  for (const [speciesId, concentration] of Object.entries(initialSpecies)) {
+    const species = speciesById.get(speciesId);
+    if (!species) throw new Error(`Espécie não encontrada na base: ${speciesId}.`);
+    const contribution = species.charge * concentration;
+    residual += contribution;
+    scale += Math.abs(contribution);
+  }
+  const tolerance = 1e-12 + 1e-9 * scale;
+  return { residual, scale, tolerance, balanced: Math.abs(residual) <= tolerance };
+}
+
+function validateInitialCharge(
+  database: ChemistryDatabase,
+  initialSpecies: Record<string, number>,
+) {
+  const diagnostics = initialChargeDiagnostics(database, initialSpecies);
+  if (!diagnostics.balanced) {
+    const magnitude = Math.abs(diagnostics.residual);
+    const excess = diagnostics.residual > 0 ? "positiva" : "negativa";
+    const needed = diagnostics.residual > 0 ? "negativa" : "positiva";
+    throw new Error(
+      `A entrada por espécies não satisfaz a eletroneutralidade: excesso de carga ${excess} `
+      + `de ${magnitude.toPrecision(6)} eq/L. Para neutralizar matematicamente, adicione `
+      + `${magnitude.toPrecision(6)} mol/L de uma espécie monovalente ${needed}, `
+      + `${(magnitude / 2).toPrecision(6)} mol/L de uma espécie divalente ${needed}, `
+      + "ou ajuste as concentrações informadas. Confirme a compatibilidade química da correção.",
+    );
+  }
+  return diagnostics;
+}
+
+function componentTotalsFromInitialSpecies(
+  database: ChemistryDatabase,
+  initialSpecies: Record<string, number>,
+) {
+  const massComponentIds = new Set(
+    database.components
+      .filter((component) => component.balance_mode === "mass_balance")
+      .map((component) => component.component_id),
+  );
+  const totals: Record<string, number> = {};
+  for (const [speciesId, concentration] of Object.entries(initialSpecies)) {
+    const composition = database.composition[speciesId];
+    if (!composition) throw new Error(`Espécie sem composição: ${speciesId}.`);
+    for (const [componentId, coefficient] of Object.entries(composition)) {
+      if (massComponentIds.has(componentId)) {
+        totals[componentId] = (totals[componentId] ?? 0) + coefficient * concentration;
+      }
     }
   }
   return totals;
+}
+
+function normalizedInput(database: ChemistryDatabase, entries: QueryEntry[]) {
+  const normalized = initialSpeciesFromEntries(database, entries);
+  const charge = normalized.requiresChargeValidation
+    ? validateInitialCharge(database, normalized.initialSpecies)
+    : initialChargeDiagnostics(database, normalized.initialSpecies);
+  return {
+    ...normalized,
+    charge,
+    componentTotals: componentTotalsFromInitialSpecies(database, normalized.initialSpecies),
+  };
+}
+
+function componentTotalsFromEntries(
+  database: ChemistryDatabase,
+  entries: QueryEntry[],
+) {
+  return normalizedInput(database, entries).componentTotals;
+}
+
+export function isNeutralMaterial(
+  database: ChemistryDatabase,
+  materialId: string,
+) {
+  const mapping = database.materialSpecies[materialId];
+  if (!mapping) return false;
+  const speciesById = new Map(
+    database.species.map((species) => [species.species_id, species]),
+  );
+  const charge = Object.entries(mapping).reduce((sum, [speciesId, coefficient]) => {
+    const species = speciesById.get(speciesId);
+    return sum + (species?.charge ?? Number.NaN) * coefficient;
+  }, 0);
+  return Number.isFinite(charge) && Math.abs(charge) <= 1e-12;
 }
 
 function buildProblem(
@@ -157,7 +284,7 @@ function speciesConcentrations(problem: Problem, values: number[]) {
       )) {
         logConcentration += coefficient * values[problem.componentIndex[componentId]];
       }
-      return [species.species_id, 10 ** clamp(logConcentration, -300, 100)];
+      return [species.species_id, 10 ** Math.min(100, Math.max(-300, logConcentration))];
     }),
   );
 }
@@ -206,81 +333,117 @@ function infinityNorm(values: number[]) {
   return Math.max(...values.map((value) => Math.abs(value)));
 }
 
-function solveLinearSystem(matrix: number[][], target: number[]) {
-  const size = target.length;
-  const augmented = matrix.map((row, index) => [...row, target[index]]);
-  for (let column = 0; column < size; column += 1) {
-    let pivot = column;
-    for (let row = column + 1; row < size; row += 1) {
-      if (Math.abs(augmented[row][column]) > Math.abs(augmented[pivot][column])) pivot = row;
+function log10Sum(logValues: number[]) {
+  if (logValues.length === 0) throw new Error("Uma família ácido-base ficou sem espécies.");
+  const maximum = Math.max(...logValues);
+  return maximum + Math.log10(
+    logValues.reduce((sum, value) => sum + 10 ** (value - maximum), 0),
+  );
+}
+
+type AcidBaseTerm = {
+  logBeta: number;
+  protonCoefficient: number;
+};
+
+function idealAcidBaseFamilies(problem: Problem) {
+  const activeSet = new Set(problem.activeMassComponents);
+  const families = Object.fromEntries(
+    problem.activeMassComponents.map((componentId) => [componentId, [] as AcidBaseTerm[]]),
+  );
+
+  for (const species of problem.selectedSpecies) {
+    const composition = problem.database.composition[species.species_id];
+    const massDependencies = Object.keys(composition).filter(
+      (componentId) => componentId !== problem.protonComponentId,
+    );
+    if (massDependencies.length > 1) {
+      throw new Error(
+        `O solver ácido-base ideal não admite espécie com múltiplos componentes: ${species.species_id}.`,
+      );
     }
-    if (Math.abs(augmented[pivot][column]) < 1e-14) {
-      throw new Error("O sistema numérico ficou singular para esta composição.");
+    if (massDependencies.length === 0) continue;
+
+    const componentId = massDependencies[0];
+    if (!activeSet.has(componentId)) continue;
+    if (Math.abs(composition[componentId] - 1) > 1e-12) {
+      throw new Error(
+        `O solver ácido-base ideal exige coeficiente unitário em ${species.species_id}.`,
+      );
     }
-    [augmented[column], augmented[pivot]] = [augmented[pivot], augmented[column]];
-    const divisor = augmented[column][column];
-    for (let index = column; index <= size; index += 1) augmented[column][index] /= divisor;
-    for (let row = 0; row < size; row += 1) {
-      if (row === column) continue;
-      const factor = augmented[row][column];
-      for (let index = column; index <= size; index += 1) {
-        augmented[row][index] -= factor * augmented[column][index];
-      }
-    }
+    families[componentId].push({
+      logBeta: species.log_beta,
+      protonCoefficient: composition[problem.protonComponentId] ?? 0,
+    });
   }
-  return augmented.map((row) => row[size]);
+
+  const missing = problem.activeMassComponents.filter(
+    (componentId) => families[componentId].length === 0,
+  );
+  if (missing.length > 0) {
+    throw new Error(`Componentes ativos sem família ácido-base: ${missing.join(", ")}.`);
+  }
+  return families;
+}
+
+function idealAcidBaseValues(
+  problem: Problem,
+  families: Record<string, AcidBaseTerm[]>,
+  logHydrogen: number,
+) {
+  return [
+    logHydrogen,
+    ...problem.activeMassComponents.map((componentId) => {
+      const logDistribution = log10Sum(
+        families[componentId].map(
+          (term) => term.logBeta + term.protonCoefficient * logHydrogen,
+        ),
+      );
+      return Math.log10(problem.componentTotals[componentId]) - logDistribution;
+    }),
+  ];
 }
 
 function solveProblem(problem: Problem) {
-  let values = problem.variableComponents.map((componentId) =>
-    Math.log10(
-      componentId === problem.protonComponentId
-        ? 1e-7
-        : Math.max(problem.componentTotals[componentId], 1e-12),
-    ),
-  );
-  const tolerance = 1e-10;
+  const families = idealAcidBaseFamilies(problem);
+  const tolerance = 1e-12;
+  const logHydrogenTolerance = 1e-12;
+  const maxIterations = 256;
+  let lower = MIN_LOG_HYDROGEN;
+  let upper = MAX_LOG_HYDROGEN;
 
-  for (let iteration = 0; iteration <= 100; iteration += 1) {
+  const evaluate = (logHydrogen: number) => {
+    const values = idealAcidBaseValues(problem, families, logHydrogen);
     const currentResiduals = residuals(problem, values);
-    const residualNorm = infinityNorm(currentResiduals);
-    if (residualNorm <= tolerance) {
-      return { converged: true, values, iterations: iteration, residualNorm };
-    }
-    if (iteration === 100) break;
+    return { values, residuals: currentResiduals };
+  };
 
-    const jacobian = values.map((_, column) => {
-      const step = 1e-6 * Math.max(1, Math.abs(values[column]));
-      const shifted = [...values];
-      shifted[column] += step;
-      const shiftedResiduals = residuals(problem, shifted);
-      return shiftedResiduals.map((value, row) => (value - currentResiduals[row]) / step);
-    });
-    const rowMatrix = jacobian[0].map((_, row) => jacobian.map((column) => column[row]));
-    let newtonStep = solveLinearSystem(rowMatrix, currentResiduals.map((value) => -value));
-    const maxStep = infinityNorm(newtonStep);
-    if (maxStep > 3) newtonStep = newtonStep.map((value) => (value * 3) / maxStep);
-
-    let accepted = false;
-    let damping = 1;
-    for (let attempt = 0; attempt < 24; attempt += 1) {
-      const candidate = values.map((value, index) =>
-        clamp(value + damping * newtonStep[index], MIN_LOG_CONCENTRATION, MAX_LOG_CONCENTRATION),
-      );
-      if (infinityNorm(residuals(problem, candidate)) < residualNorm) {
-        values = candidate;
-        accepted = true;
-        break;
-      }
-      damping *= 0.5;
-    }
-    if (!accepted) break;
+  const lowerEvaluation = evaluate(lower);
+  const upperEvaluation = evaluate(upper);
+  if (
+    lowerEvaluation.residuals.at(-1)! > 0
+    || upperEvaluation.residuals.at(-1)! < 0
+  ) {
+    throw new Error("Não foi possível delimitar a raiz de eletroneutralidade.");
   }
+
+  let evaluation = lowerEvaluation;
+  for (let iteration = 1; iteration <= maxIterations; iteration += 1) {
+    const midpoint = (lower + upper) / 2;
+    evaluation = evaluate(midpoint);
+    const residualNorm = infinityNorm(evaluation.residuals);
+    if (residualNorm <= tolerance && upper - lower <= logHydrogenTolerance) {
+      return { converged: true, values: evaluation.values, iterations: iteration, residualNorm };
+    }
+    if (evaluation.residuals.at(-1)! > 0) upper = midpoint;
+    else lower = midpoint;
+  }
+
   return {
     converged: false,
-    values,
-    iterations: 100,
-    residualNorm: infinityNorm(residuals(problem, values)),
+    values: evaluation.values,
+    iterations: maxIterations,
+    residualNorm: infinityNorm(evaluation.residuals),
   };
 }
 
@@ -298,7 +461,8 @@ export function calculateEquilibrium(
   if (unsupportedTypes.length > 0) {
     throw new Error(`Tipos de equilíbrio ainda não suportados: ${unsupportedTypes.join(", ")}.`);
   }
-  const componentTotals = componentTotalsFromEntries(database, entries);
+  const input = normalizedInput(database, entries);
+  const componentTotals = input.componentTotals;
   const problem = buildProblem(database, componentTotals);
   const numerical = solveProblem(problem);
   if (!numerical.converged) {
@@ -327,6 +491,8 @@ export function calculateEquilibrium(
     chargeResidual: charge,
     maxAbsResidual: infinityNorm(finalResiduals),
     concentrations,
+    initialSpecies: input.initialSpecies,
+    initialChargeResidual: input.charge.residual,
     componentTotals,
     activeComponents: problem.activeMassComponents.map((id) => componentById.get(id)!),
     selectedSpecies: problem.selectedSpecies,
@@ -334,5 +500,9 @@ export function calculateEquilibrium(
 }
 
 export const equilibriumInternals = {
+  initialSpeciesFromEntries,
+  initialChargeDiagnostics,
+  validateInitialCharge,
+  componentTotalsFromInitialSpecies,
   componentTotalsFromEntries,
 };

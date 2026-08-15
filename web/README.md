@@ -23,4 +23,12 @@ pnpm test
 
 O modo `output: "export"` gera o site estático em `dist/client`. Durante o GitHub Actions, os recursos recebem o prefixo `/doutorado-especiacao/`, correspondente ao endereço do repositório no Pages.
 
-Os dados mostrados nesta etapa são um caso científico de referência. Os controles de cálculo permanecem desativados até que o solver seja integrado ao navegador.
+A interface executa localmente no navegador o solver ácido-base ideal. A base
+química é gerada a partir de `../data/base_componentes.xlsx` pelo comando
+`pnpm data:sync`, evitando a manutenção manual de duas fontes de dados.
+
+A composição pode misturar linhas de compostos e de espécies. Os compostos são
+normalizados pela tabela `material_species`; quando houver entrada direta por
+espécies, o conjunto completo somente segue para o solver quando `Σ zᵢCᵢ`
+satisfaz a tolerância de eletroneutralidade. Depois do cálculo, a interface oferece
+um relatório preparado para impressão ou salvamento em PDF pelo navegador.

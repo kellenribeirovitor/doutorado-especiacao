@@ -13,10 +13,14 @@ test("gera a ferramenta como uma página estática", async () => {
   assert.doesNotMatch(html, /Especiação aquosa/);
   assert.match(html, /Sistema de equilíbrio/);
   assert.match(html, /Composição analítica/);
-  assert.match(html, /Nenhum componente adicionado/);
+  assert.match(html, /Nenhum[\s\S]{0,80}composto[\s\S]{0,40}espécie[\s\S]{0,40}adicionado/);
   assert.doesNotMatch(html, /3,033672/);
   assert.match(html, /Concentrações de equilíbrio/);
-  assert.match(html, /Adicionar componente/);
+  assert.match(html, /Adicionar[\s\S]{0,40}composto/);
+  assert.match(html, /Adicionar[\s\S]{0,40}espécie/);
+  assert.match(html, /misturar compostos e espécies/);
+  assert.match(html, /eletroneutralidade do conjunto completo/);
+  assert.doesNotMatch(html, /Modo de entrada/);
   assert.match(html, /Calcular/);
   assert.doesNotMatch(html, /Modelo ativo/);
   assert.match(html, /Tipos de equilíbrio/);
@@ -35,6 +39,18 @@ test("gera a ferramenta como uma página estática", async () => {
   assert.doesNotMatch(html, /aria-label="Modelo de atividade"[^>]*disabled/);
   assert.doesNotMatch(html, /Restaurar exemplo|Carregar exemplo/);
   assert.doesNotMatch(html, /react-loading-skeleton|Starter Project/);
+});
+
+test("oferece relatório para impressão ou PDF", async () => {
+  const [pageSource, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(pageSource, /Imprimir \/ salvar PDF/);
+  assert.match(pageSource, /window\.print\(\)/);
+  assert.match(pageSource, /Relatório de especiação química/);
+  assert.match(css, /@media print/);
 });
 
 test("usa caminhos compatíveis com o repositório no GitHub Pages", async () => {

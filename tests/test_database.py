@@ -1,4 +1,5 @@
 from pathlib import Path
+from copy import deepcopy
 import math
 import re
 import unittest
@@ -18,8 +19,33 @@ class DatabaseTests(unittest.TestCase):
 
     def test_component_ids_are_three_digit_strings(self):
         ids = [row["component_id"] for row in self.database["components"]]
-        self.assertEqual(ids, [f"{number:03d}" for number in range(1, 10)])
+        self.assertEqual(ids, [f"{number:03d}" for number in range(1, len(ids) + 1)])
         self.assertTrue(all(re.fullmatch(r"\d{3}", item) for item in ids))
+
+    def test_priority_polyprotic_families_are_present(self):
+        formulas = {row["formula"] for row in self.database["species"]}
+        self.assertTrue({"CO3-2", "HCO3-", "H2CO3"} <= formulas)
+        self.assertTrue({"PO4-3", "HPO4-2", "H2PO4-", "H3PO4"} <= formulas)
+
+    def test_formal_material_decomposition_is_explicit(self):
+        self.assertEqual(
+            self.database["material_species"]["M001"],
+            {"S001": 1.0, "S003": 1.0},
+        )
+        self.assertEqual(
+            self.database["material_species"]["M009"],
+            {"S001": 1.0, "S012": 1.0},
+        )
+        self.assertEqual(
+            self.database["material_species"]["M008"],
+            {"S007": 1.0, "S002": 1.0},
+        )
+
+    def test_hbr_and_bromide_are_available(self):
+        species_formulas = {row["formula"] for row in self.database["species"]}
+        material_formulas = {row["formula"] for row in self.database["materials"]}
+        self.assertIn("Br-", species_formulas)
+        self.assertIn("HBr", material_formulas)
 
     def test_water_autoionization_representation(self):
         acid_base = validate_acid_base_database(self.database)
@@ -48,6 +74,12 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(
             by_formula["H3Cit"]["log_beta"], 3.128 + 4.761 + 6.396
         )
+
+    def test_ideal_acid_base_model_rejects_cross_component_species(self):
+        invalid = deepcopy(self.database)
+        invalid["composition"]["S013"]["006"] = 1.0
+        with self.assertRaisesRegex(ValueError, "mais de um componente conservado"):
+            validate_acid_base_database(invalid)
 
 
 if __name__ == "__main__":

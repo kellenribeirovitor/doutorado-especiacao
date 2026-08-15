@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "components": [
     {
       "component_id": "001",
@@ -81,6 +81,33 @@
       "charge": -3.0,
       "balance_mode": "mass_balance",
       "notes": "Componente conservado da família citrato."
+    },
+    {
+      "component_id": "010",
+      "species_id": "S018",
+      "formula": "CO3-2",
+      "name": "Carbonato",
+      "charge": -2.0,
+      "balance_mode": "mass_balance",
+      "notes": "Componente conservado da família carbonato; sistema fechado sem troca gasosa."
+    },
+    {
+      "component_id": "011",
+      "species_id": "S021",
+      "formula": "PO4-3",
+      "name": "Fosfato",
+      "charge": -3.0,
+      "balance_mode": "mass_balance",
+      "notes": "Componente conservado da família fosfato."
+    },
+    {
+      "component_id": "012",
+      "species_id": "S025",
+      "formula": "Br-",
+      "name": "Brometo",
+      "charge": -1.0,
+      "balance_mode": "mass_balance",
+      "notes": "Componente conservado do brometo."
     }
   ],
   "species": [
@@ -270,6 +297,94 @@
       "source_equilibrium": "CIT1+CIT2+CIT3",
       "source_logk": null,
       "notes": "logβ = -(logKa1 + logKa2 + logKa3)."
+    },
+    {
+      "species_id": "S018",
+      "formula": "CO3-2",
+      "name": "Carbonato",
+      "charge": -2.0,
+      "log_beta": 0.0,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "component",
+      "source_logk": null,
+      "notes": "Espécie do componente 010."
+    },
+    {
+      "species_id": "S019",
+      "formula": "HCO3-",
+      "name": "Bicarbonato",
+      "charge": -1.0,
+      "log_beta": 10.329,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "CO3-2 + H+ = HCO3-",
+      "source_logk": 10.329,
+      "notes": "logβ cumulativo a 25 °C e força iônica zero."
+    },
+    {
+      "species_id": "S020",
+      "formula": "H2CO3",
+      "name": "Ácido carbônico formal",
+      "charge": 0.0,
+      "log_beta": 16.681,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "CO3-2 + 2 H+ = H2CO3",
+      "source_logk": 16.681,
+      "notes": "Representa H2CO3* no modelo fechado ideal; logβ cumulativo."
+    },
+    {
+      "species_id": "S021",
+      "formula": "PO4-3",
+      "name": "Fosfato",
+      "charge": -3.0,
+      "log_beta": 0.0,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "component",
+      "source_logk": null,
+      "notes": "Espécie do componente 011."
+    },
+    {
+      "species_id": "S022",
+      "formula": "HPO4-2",
+      "name": "Hidrogenofosfato",
+      "charge": -2.0,
+      "log_beta": 12.375,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "PO4-3 + H+ = HPO4-2",
+      "source_logk": 12.375,
+      "notes": "logβ cumulativo a 25 °C e força iônica zero."
+    },
+    {
+      "species_id": "S023",
+      "formula": "H2PO4-",
+      "name": "Dihidrogenofosfato",
+      "charge": -1.0,
+      "log_beta": 19.573,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "PO4-3 + 2 H+ = H2PO4-",
+      "source_logk": 19.573,
+      "notes": "logβ cumulativo a 25 °C e força iônica zero."
+    },
+    {
+      "species_id": "S024",
+      "formula": "H3PO4",
+      "name": "Ácido fosfórico",
+      "charge": 0.0,
+      "log_beta": 21.721,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "PO4-3 + 3 H+ = H3PO4",
+      "source_logk": 21.721,
+      "notes": "logβ cumulativo a 25 °C e força iônica zero."
+    },
+    {
+      "species_id": "S025",
+      "formula": "Br-",
+      "name": "Brometo",
+      "charge": -1.0,
+      "log_beta": 0.0,
+      "constant_convention": "log10(beta)",
+      "source_equilibrium": "component",
+      "source_logk": null,
+      "notes": "Espécie do componente 012."
     }
   ],
   "composition": {
@@ -330,6 +445,35 @@
     "S017": {
       "001": 3.0,
       "009": 1.0
+    },
+    "S018": {
+      "010": 1.0
+    },
+    "S019": {
+      "001": 1.0,
+      "010": 1.0
+    },
+    "S020": {
+      "001": 2.0,
+      "010": 1.0
+    },
+    "S021": {
+      "011": 1.0
+    },
+    "S022": {
+      "001": 1.0,
+      "011": 1.0
+    },
+    "S023": {
+      "001": 2.0,
+      "011": 1.0
+    },
+    "S024": {
+      "001": 3.0,
+      "011": 1.0
+    },
+    "S025": {
+      "012": 1.0
     }
   },
   "materials": [
@@ -338,115 +482,242 @@
       "formula": "HF",
       "name": "Ácido fluorídrico",
       "input_model": "analytical_total",
-      "notes": "A entrada define F_total; a protonação é resolvida no equilíbrio."
+      "notes": "Decomposição formal: H+ + F-; o equilíbrio determina a distribuição HF/F-."
     },
     {
       "material_id": "M002",
       "formula": "HCl",
       "name": "Ácido clorídrico",
       "input_model": "complete_dissociation",
-      "notes": "A entrada define Cl_total; HCl não é espécie de equilíbrio."
+      "notes": "Dissociação completa: H+ + Cl-."
     },
     {
       "material_id": "M003",
       "formula": "NH4NO3",
       "name": "Nitrato de amônio",
       "input_model": "complete_dissociation",
-      "notes": "A entrada define NHx_total e NO3_total."
+      "notes": "Dissociação completa: NH4+ + NO3-."
     },
     {
       "material_id": "M004",
       "formula": "NaHSO4",
       "name": "Hidrogenossulfato de sódio",
       "input_model": "complete_dissociation",
-      "notes": "A entrada define Na_total e SO4_total."
+      "notes": "Dissociação completa: Na+ + HSO4-; o equilíbrio determina HSO4-/SO4-2."
     },
     {
       "material_id": "M005",
       "formula": "HSO4-",
       "name": "Hidrogenossulfato",
       "input_model": "analytical_total",
-      "notes": "A entrada define SO4_total."
+      "notes": "Alias legado da entrada por espécie HSO4-."
     },
     {
       "material_id": "M006",
       "formula": "NH4+",
       "name": "Amônio",
       "input_model": "analytical_total",
-      "notes": "A entrada define NHx_total."
+      "notes": "Alias legado da entrada por espécie NH4+."
     },
     {
       "material_id": "M007",
       "formula": "NaCl",
       "name": "Cloreto de sódio",
       "input_model": "complete_dissociation",
-      "notes": "A entrada define Na_total e Cl_total."
+      "notes": "Dissociação completa: Na+ + Cl-."
     },
     {
       "material_id": "M008",
       "formula": "NH3",
       "name": "Amônia",
       "input_model": "analytical_total",
-      "notes": "A entrada define NHx_total."
+      "notes": "Decomposição formal: NH4+ + OH-; água implícita e distribuição resolvida no equilíbrio."
     },
     {
       "material_id": "M009",
       "formula": "CH3COOH",
       "name": "Ácido acético",
       "input_model": "analytical_total",
-      "notes": "A entrada define Acetate_total."
+      "notes": "Decomposição formal: H+ + CH3COO-; o equilíbrio determina CH3COOH/CH3COO-."
     },
     {
       "material_id": "M010",
       "formula": "NaOH",
       "name": "Hidróxido de sódio",
       "input_model": "complete_dissociation",
-      "notes": "A entrada define Na_total; OH- é calculado por Kw e carga."
+      "notes": "Dissociação completa: Na+ + OH-."
     },
     {
       "material_id": "M011",
       "formula": "H3Cit",
       "name": "Ácido cítrico",
       "input_model": "analytical_total",
-      "notes": "A entrada define Citrate_total."
+      "notes": "Decomposição formal: 3 H+ + Cit-3; o equilíbrio determina as formas protonadas."
+    },
+    {
+      "material_id": "M012",
+      "formula": "NaCH3COO",
+      "name": "Acetato de sódio",
+      "input_model": "complete_dissociation",
+      "notes": "Dissociação completa: Na+ + CH3COO-."
+    },
+    {
+      "material_id": "M013",
+      "formula": "NH4Cl",
+      "name": "Cloreto de amônio",
+      "input_model": "complete_dissociation",
+      "notes": "Dissociação completa: NH4+ + Cl-."
+    },
+    {
+      "material_id": "M014",
+      "formula": "H2CO3",
+      "name": "Ácido carbônico formal",
+      "input_model": "analytical_total",
+      "notes": "Decomposição formal: 2 H+ + CO3-2; modelo fechado, sem troca com CO2(g)."
+    },
+    {
+      "material_id": "M015",
+      "formula": "NaHCO3",
+      "name": "Bicarbonato de sódio",
+      "input_model": "complete_dissociation",
+      "notes": "Dissociação completa: Na+ + HCO3-."
+    },
+    {
+      "material_id": "M016",
+      "formula": "Na2CO3",
+      "name": "Carbonato de sódio",
+      "input_model": "complete_dissociation",
+      "notes": "Dissociação completa: 2 Na+ + CO3-2."
+    },
+    {
+      "material_id": "M017",
+      "formula": "H3PO4",
+      "name": "Ácido fosfórico",
+      "input_model": "analytical_total",
+      "notes": "Decomposição formal: 3 H+ + PO4-3; o equilíbrio determina as formas protonadas."
+    },
+    {
+      "material_id": "M018",
+      "formula": "NaH2PO4",
+      "name": "Dihidrogenofosfato de sódio",
+      "input_model": "complete_dissociation",
+      "notes": "Dissociação completa: Na+ + H2PO4-."
+    },
+    {
+      "material_id": "M019",
+      "formula": "Na2HPO4",
+      "name": "Hidrogenofosfato dissódico",
+      "input_model": "complete_dissociation",
+      "notes": "Dissociação completa: 2 Na+ + HPO4-2."
+    },
+    {
+      "material_id": "M020",
+      "formula": "Na3PO4",
+      "name": "Fosfato trissódico",
+      "input_model": "complete_dissociation",
+      "notes": "Dissociação completa: 3 Na+ + PO4-3."
+    },
+    {
+      "material_id": "M021",
+      "formula": "Na3Cit",
+      "name": "Citrato trissódico",
+      "input_model": "complete_dissociation",
+      "notes": "Dissociação completa: 3 Na+ + Cit-3."
+    },
+    {
+      "material_id": "M022",
+      "formula": "HBr",
+      "name": "Ácido bromídrico",
+      "input_model": "complete_dissociation",
+      "notes": "Dissociação completa: H+ + Br-."
     }
   ],
-  "materialComposition": {
+  "materialSpecies": {
     "M001": {
-      "002": 1.0
+      "S001": 1.0,
+      "S003": 1.0
     },
     "M002": {
-      "003": 1.0
+      "S001": 1.0,
+      "S005": 1.0
     },
     "M003": {
-      "004": 1.0,
-      "005": 1.0
+      "S007": 1.0,
+      "S008": 1.0
     },
     "M004": {
-      "006": 1.0,
-      "007": 1.0
+      "S009": 1.0,
+      "S011": 1.0
     },
     "M005": {
-      "007": 1.0
+      "S011": 1.0
     },
     "M006": {
-      "004": 1.0
+      "S007": 1.0
     },
     "M007": {
-      "006": 1.0,
-      "003": 1.0
+      "S009": 1.0,
+      "S005": 1.0
     },
     "M008": {
-      "004": 1.0
+      "S007": 1.0,
+      "S002": 1.0
     },
     "M009": {
-      "008": 1.0
+      "S001": 1.0,
+      "S012": 1.0
     },
     "M010": {
-      "006": 1.0
+      "S009": 1.0,
+      "S002": 1.0
     },
     "M011": {
-      "009": 1.0
+      "S001": 3.0,
+      "S014": 1.0
+    },
+    "M012": {
+      "S009": 1.0,
+      "S012": 1.0
+    },
+    "M013": {
+      "S007": 1.0,
+      "S005": 1.0
+    },
+    "M014": {
+      "S001": 2.0,
+      "S018": 1.0
+    },
+    "M015": {
+      "S009": 1.0,
+      "S019": 1.0
+    },
+    "M016": {
+      "S009": 2.0,
+      "S018": 1.0
+    },
+    "M017": {
+      "S001": 3.0,
+      "S021": 1.0
+    },
+    "M018": {
+      "S009": 1.0,
+      "S023": 1.0
+    },
+    "M019": {
+      "S009": 2.0,
+      "S022": 1.0
+    },
+    "M020": {
+      "S009": 3.0,
+      "S021": 1.0
+    },
+    "M021": {
+      "S009": 3.0,
+      "S014": 1.0
+    },
+    "M022": {
+      "S001": 1.0,
+      "S025": 1.0
     }
   }
 }

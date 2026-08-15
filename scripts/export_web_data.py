@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 import sys
@@ -18,28 +19,40 @@ DATABASE_PATH = ROOT / "data" / "base_componentes.xlsx"
 WEB_DATA_DIR = ROOT / "web" / "data"
 
 
-def build_web_database() -> dict:
+def build_web_database(database_path: str | Path = DATABASE_PATH) -> dict:
     """Converte a base validada em uma estrutura própria para o navegador."""
-    database = load_database(DATABASE_PATH)
+    database = load_database(database_path)
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "components": database["components"],
         "species": database["species"],
         "composition": database["composition"],
         "materials": database["materials"],
-        "materialComposition": database["material_composition"],
+        "materialSpecies": database["material_species"],
     }
 
 
-def write_web_payloads() -> None:
+def write_web_payloads(database_path: str | Path = DATABASE_PATH) -> None:
     WEB_DATA_DIR.mkdir(parents=True, exist_ok=True)
     path = WEB_DATA_DIR / "chemistry-database.json"
     path.write_text(
-        json.dumps(build_web_database(), ensure_ascii=False, indent=2) + "\n",
+        json.dumps(build_web_database(database_path), ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
     print(f"Gerado: {path.relative_to(ROOT)}")
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Exporta a base química para a interface web.")
+    parser.add_argument(
+        "--database",
+        type=Path,
+        default=DATABASE_PATH,
+        help="Planilha química validada que será exportada.",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    write_web_payloads()
+    args = parse_args()
+    write_web_payloads(args.database)

@@ -3,15 +3,18 @@ import math
 import unittest
 
 from chemistry.acid_base import acid_base_diagnostics
-from data.database import component_totals_from_entries, load_database
+from data.database import (
+    ChargeBalanceError,
+    component_totals_from_entries,
+    initial_species_from_entries,
+    load_database,
+)
 from equilibrium.system import (
     build_component_system,
     equilibrium_diagnostics,
-    initial_log_concentrations,
-    system_residuals,
+    solve_ideal_acid_base,
 )
 from main import run_equilibrium
-from solver.solver import solve_log_system
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,10 +30,7 @@ class EquilibriumTests(unittest.TestCase):
     def solve_entries(self, entries):
         totals, _ = component_totals_from_entries(self.database, entries)
         problem = build_component_system(self.database, totals)
-        solution = solve_log_system(
-            lambda values: system_residuals(problem, values),
-            initial_log_concentrations(problem),
-        )
+        solution = solve_ideal_acid_base(problem)
         self.assertTrue(solution["converged"], solution)
         diagnostics = equilibrium_diagnostics(problem, solution["values"])
         acid_base = acid_base_diagnostics(
@@ -75,6 +75,91 @@ class EquilibriumTests(unittest.TestCase):
         )
         self.assertAlmostEqual(base["pH"], 13.0, places=10)
 
+        _, _, _, hydrobromic = self.solve_entries(
+            [{"query": "HBr", "concentration": 0.1}]
+        )
+        self.assertAlmostEqual(hydrobromic["pH"], 1.0, places=10)
+
+    def test_materials_are_normalized_to_formal_species(self):
+        initial, _ = initial_species_from_entries(
+            self.database,
+            [
+                {"query": "HF", "concentration": 0.1},
+                {"query": "CH3COOH", "concentration": 0.2},
+                {"query": "NH3", "concentration": 0.3},
+            ],
+        )
+        expected = {
+            "S001": 0.3,
+            "S003": 0.1,
+            "S012": 0.2,
+            "S007": 0.3,
+            "S002": 0.3,
+        }
+        self.assertEqual(set(initial), set(expected))
+        for species_id, concentration in expected.items():
+            self.assertTrue(
+                math.isclose(initial[species_id], concentration, abs_tol=1e-15)
+            )
+
+    def test_balanced_direct_species_continue_to_equilibrium(self):
+        _, _, diagnostics, acid_base = self.solve_entries(
+            [
+                {
+                    "entry_type": "species",
+                    "species_id": "S001",
+                    "concentration": 0.1,
+                },
+                {
+                    "entry_type": "species",
+                    "species_id": "S005",
+                    "concentration": 0.1,
+                },
+            ]
+        )
+        self.assertAlmostEqual(acid_base["pH"], 1.0, places=10)
+        self.assertLess(abs(diagnostics["charge_residual"]), 1e-12)
+
+    def test_unbalanced_direct_species_are_rejected_with_correction(self):
+        with self.assertRaisesRegex(
+            ChargeBalanceError,
+            "excesso de carga negativa.*monovalente positiva",
+        ):
+            component_totals_from_entries(
+                self.database,
+                [
+                    {
+                        "entry_type": "species",
+                        "species_id": "S007",
+                        "concentration": 0.1,
+                    },
+                    {
+                        "entry_type": "species",
+                        "species_id": "S010",
+                        "concentration": 0.1,
+                    },
+                ],
+            )
+
+    def test_equimolar_strong_acid_and_base_return_to_neutrality(self):
+        _, _, diagnostics, acid_base = self.solve_entries(
+            [
+                {"query": "HCl", "concentration": 0.1},
+                {"query": "NaOH", "concentration": 0.1},
+            ]
+        )
+        self.assertAlmostEqual(acid_base["pH"], 7.0, places=10)
+        self.assertLess(abs(diagnostics["charge_residual"]), 1e-12)
+
+    def test_half_neutralized_acetic_acid_matches_pka(self):
+        _, _, _, acid_base = self.solve_entries(
+            [
+                {"query": "CH3COOH", "concentration": 0.01},
+                {"query": "NaOH", "concentration": 0.005},
+            ]
+        )
+        self.assertLess(abs(acid_base["pH"] - 4.754487), 0.005)
+
     def test_pure_water(self):
         problem, _, diagnostics, acid_base = self.solve_entries([])
         self.assertEqual(problem["active_mass_components"], [])
@@ -118,6 +203,59 @@ class EquilibriumTests(unittest.TestCase):
                     1e-9,
                 )
                 self.assertLess(abs(acid_base["kw_error"]), 1e-24)
+
+    def test_trace_components_remain_stable_with_concentrated_background(self):
+        cases = (
+            (("HF", 1e-14), ("HCl", 1.0)),
+            (("HF", 1e-4), ("NaCl", 1.0)),
+            (("HF", 1e-2), ("H3Cit", 1e-14)),
+            (("NH4NO3", 10.0),),
+        )
+        for case in cases:
+            with self.subTest(case=case):
+                entries = [
+                    {"query": material, "concentration": concentration}
+                    for material, concentration in case
+                ]
+                _, solution, diagnostics, acid_base = self.solve_entries(entries)
+                self.assertLess(solution["residual_norm"], 1e-10)
+                self.assertLess(abs(diagnostics["charge_residual"]), 1e-9)
+                self.assertTrue(math.isfinite(acid_base["pH"]))
+
+    def test_pairwise_materials_converge_across_concentration_scales(self):
+        materials = self.database["materials"]
+        concentration_pairs = (
+            (1e-12, 1.0),
+            (1.0, 1e-12),
+            (1e-4, 1.0),
+        )
+        for first_index, first in enumerate(materials):
+            for second in materials[first_index + 1:]:
+                for first_concentration, second_concentration in concentration_pairs:
+                    case = (
+                        (first["formula"], first_concentration),
+                        (second["formula"], second_concentration),
+                    )
+                    with self.subTest(case=case):
+                        _, solution, _, _ = self.solve_entries(
+                            [
+                                {
+                                    "query": first["material_id"],
+                                    "concentration": first_concentration,
+                                },
+                                {
+                                    "query": second["material_id"],
+                                    "concentration": second_concentration,
+                                },
+                            ]
+                        )
+                        self.assertLess(solution["residual_norm"], 1e-10)
+
+    def test_zero_concentration_is_equivalent_to_no_addition(self):
+        _, _, _, acid_base = self.solve_entries(
+            [{"query": "HCl", "concentration": 0.0}]
+        )
+        self.assertAlmostEqual(acid_base["pH"], 7.0, places=12)
 
 
 if __name__ == "__main__":

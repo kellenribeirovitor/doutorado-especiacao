@@ -14,10 +14,8 @@ from data.database import (
 from equilibrium.system import (
     build_component_system,
     equilibrium_diagnostics,
-    initial_log_concentrations,
-    system_residuals,
+    solve_ideal_acid_base,
 )
-from solver.solver import solve_log_system
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -36,11 +34,7 @@ def run_equilibrium(
         database, entries
     )
     problem = build_component_system(database, component_totals)
-    initial_values = initial_log_concentrations(problem)
-    numerical = solve_log_system(
-        lambda values: system_residuals(problem, values),
-        initial_values,
-    )
+    numerical = solve_ideal_acid_base(problem)
     if not numerical["converged"]:
         raise RuntimeError(
             "O solver não convergiu: "

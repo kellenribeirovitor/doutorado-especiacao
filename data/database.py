@@ -25,10 +25,12 @@ REQUIRED_SHEETS = {
         "name",
         "charge",
         "log_beta",
+        "constant_convention",
+        "source_equilibrium",
     },
     "composition": {"species_id", "component_id", "coefficient"},
     "materials": {"material_id", "formula", "name", "input_model"},
-    "material_composition": {"material_id", "component_id", "coefficient"},
+    "material_species": {"material_id", "species_id", "coefficient"},
 }
 
 
@@ -149,20 +151,20 @@ def load_database(path: str | Path) -> dict:
             }
         )
 
-    material_composition: dict[str, dict[str, float]] = {}
-    for row_number, row in frames["material_composition"].iterrows():
+    material_species: dict[str, dict[str, float]] = {}
+    for row_number, row in frames["material_species"].iterrows():
         material_id = _text(row["material_id"])
-        component_id = _component_id(row["component_id"])
+        species_id = _text(row["species_id"])
         coefficient = _number(
             row["coefficient"],
-            f"material_composition!coefficient linha {row_number + 2}",
+            f"material_species!coefficient linha {row_number + 2}",
         )
-        mapping = material_composition.setdefault(material_id, {})
-        if component_id in mapping:
+        mapping = material_species.setdefault(material_id, {})
+        if species_id in mapping:
             raise ValueError(
-                f"Composição duplicada para material {material_id} e componente {component_id}."
+                f"Decomposição duplicada para material {material_id} e espécie {species_id}."
             )
-        mapping[component_id] = coefficient
+        mapping[species_id] = coefficient
 
     database = {
         "path": workbook_path,
@@ -170,9 +172,11 @@ def load_database(path: str | Path) -> dict:
         "species": species,
         "composition": composition,
         "materials": materials,
-        "material_composition": material_composition,
+        "material_species": material_species,
     }
     _validate_database(database)
+
+    database["material_composition"] = _derive_material_composition(database)
 
     database["component_by_id"] = {
         item["component_id"]: item for item in components
@@ -201,11 +205,23 @@ def _validate_database(database: dict) -> None:
     species = database["species"]
     materials = database["materials"]
     composition = database["composition"]
-    material_composition = database["material_composition"]
+    material_species = database["material_species"]
 
     component_by_id = _unique_index(components, "component_id", "components")
     species_by_id = _unique_index(species, "species_id", "species")
     material_by_id = _unique_index(materials, "material_id", "materials")
+
+    for label, rows in (
+        ("components", components),
+        ("species", species),
+        ("materials", materials),
+    ):
+        for row in rows:
+            if not row["formula"] or not row["name"]:
+                raise ValueError(
+                    f"{label} contém fórmula ou nome vazio no registro "
+                    f"{row.get('component_id', row.get('species_id', row.get('material_id')))}."
+                )
 
     for component_id, component in component_by_id.items():
         if not re.fullmatch(r"\d{3}", component_id):
@@ -240,6 +256,26 @@ def _validate_database(database: dict) -> None:
                 f"Carga inconsistente para {species_id}: tabela={species_row['charge']}, "
                 f"composição={calculated_charge}."
             )
+        if species_row["constant_convention"] != "log10(beta)":
+            raise ValueError(
+                f"Convenção de constante inválida para {species_id}: "
+                f"{species_row['constant_convention']!r}."
+            )
+        if not species_row["source_equilibrium"]:
+            raise ValueError(f"Espécie sem origem da constante: {species_id}.")
+
+    unknown_compositions = set(composition) - set(species_by_id)
+    if unknown_compositions:
+        raise ValueError(
+            "composition referencia espécies inexistentes: "
+            f"{sorted(unknown_compositions)}."
+        )
+    for species_id, mapping in composition.items():
+        for component_id, coefficient in mapping.items():
+            if math.isclose(coefficient, 0.0, rel_tol=0.0, abs_tol=1e-15):
+                raise ValueError(
+                    f"Coeficiente nulo em composition: {species_id}/{component_id}."
+                )
 
     for component_id, component in component_by_id.items():
         species_id = component["species_id"]
@@ -256,23 +292,80 @@ def _validate_database(database: dict) -> None:
         if row["balance_mode"] == "mass_balance"
     }
     for material_id in material_by_id:
-        if material_id not in material_composition or not material_composition[material_id]:
-            raise ValueError(f"Material sem composição analítica: {material_id}.")
-    for material_id, mapping in material_composition.items():
+        if material_by_id[material_id]["input_model"] not in {
+            "analytical_total",
+            "complete_dissociation",
+        }:
+            raise ValueError(
+                f"input_model inválido para {material_id}: "
+                f"{material_by_id[material_id]['input_model']!r}."
+            )
+        if material_id not in material_species or not material_species[material_id]:
+            raise ValueError(f"Material sem decomposição em espécies: {material_id}.")
+    for material_id, mapping in material_species.items():
         if material_id not in material_by_id:
             raise ValueError(
-                f"material_composition referencia material inexistente: {material_id}."
+                f"material_species referencia material inexistente: {material_id}."
             )
-        for component_id, coefficient in mapping.items():
-            if component_id not in mass_component_ids:
+        material = material_by_id[material_id]
+        mapped_charge = 0.0
+        for species_id, coefficient in mapping.items():
+            if species_id not in species_by_id:
                 raise ValueError(
-                    f"Material {material_id} deve contribuir apenas para componentes com "
-                    f"balanço de massa; encontrado {component_id}."
+                    f"Material {material_id} referencia espécie inexistente: {species_id}."
                 )
             if coefficient <= 0:
                 raise ValueError(
-                    f"Coeficiente de material deve ser positivo: {material_id}/{component_id}."
+                    f"Coeficiente de material deve ser positivo: {material_id}/{species_id}."
                 )
+            mapped_charge += coefficient * species_by_id[species_id]["charge"]
+
+        is_species_alias = (
+            len(mapping) == 1
+            and next(iter(mapping.values())) == 1.0
+            and normalize_text(material["formula"])
+            == normalize_text(species_by_id[next(iter(mapping))]["formula"])
+        )
+        if not is_species_alias and not math.isclose(
+            mapped_charge, 0.0, rel_tol=0.0, abs_tol=1e-12
+        ):
+            raise ValueError(
+                f"Decomposição do material {material_id} não conserva carga: "
+                f"soma={mapped_charge:.12g}."
+            )
+
+        represented_mass_components = {
+            component_id
+            for species_id in mapping
+            for component_id in composition[species_id]
+            if component_id in mass_component_ids
+        }
+        if not represented_mass_components:
+            raise ValueError(
+                f"Material {material_id} não contribui para nenhum componente conservado."
+            )
+
+
+def _derive_material_composition(database: dict) -> dict[str, dict[str, float]]:
+    """Deriva totais conservados a partir da decomposição formal em espécies."""
+    mass_component_ids = {
+        row["component_id"]
+        for row in database["components"]
+        if row["balance_mode"] == "mass_balance"
+    }
+    derived: dict[str, dict[str, float]] = {}
+    for material_id, species_mapping in database["material_species"].items():
+        totals: dict[str, float] = {}
+        for species_id, material_coefficient in species_mapping.items():
+            for component_id, species_coefficient in database["composition"][
+                species_id
+            ].items():
+                if component_id in mass_component_ids:
+                    totals[component_id] = totals.get(component_id, 0.0) + (
+                        material_coefficient * species_coefficient
+                    )
+        derived[material_id] = totals
+    return derived
 
 
 def load_selected_components(path: str | Path) -> list[dict]:
@@ -305,54 +398,170 @@ def load_selected_components(path: str | Path) -> list[dict]:
     return entries
 
 
-def component_totals_from_entries(
-    database: dict, entries: list[dict]
-) -> tuple[dict[str, float], list[dict]]:
-    """Converte materiais introduzidos em totais dos componentes conservados."""
+class ChargeBalanceError(ValueError):
+    """Indica que uma entrada direta por espécies não é eletroneutra."""
+
+    def __init__(self, residual: float, tolerance: float):
+        self.residual = residual
+        self.tolerance = tolerance
+        excess = "positiva" if residual > 0 else "negativa"
+        needed = "negativa" if residual > 0 else "positiva"
+        magnitude = abs(residual)
+        super().__init__(
+            "A entrada por espécies não satisfaz a eletroneutralidade: "
+            f"excesso de carga {excess} de {magnitude:.8g} eq/L. "
+            f"Para neutralizar matematicamente, adicione {magnitude:.8g} mol/L "
+            f"de uma espécie monovalente {needed}, {magnitude / 2:.8g} mol/L "
+            f"de uma espécie divalente {needed}, ou ajuste as concentrações "
+            "informadas. Confirme a compatibilidade química da correção."
+        )
+
+
+def _normalized_lookup(rows: list[dict], id_key: str, label: str) -> dict[str, dict]:
     lookup: dict[str, dict] = {}
-    for material in database["materials"]:
-        for candidate in (
-            material["material_id"],
-            material["formula"],
-            material["name"],
-        ):
+    for row in rows:
+        for candidate in (row[id_key], row["formula"], row["name"]):
             key = normalize_text(candidate)
             previous = lookup.get(key)
-            if previous is not None and previous["material_id"] != material["material_id"]:
-                raise ValueError(f"Identificador de material ambíguo na base: {candidate!r}.")
-            lookup[key] = material
+            if previous is not None and previous[id_key] != row[id_key]:
+                raise ValueError(f"Identificador de {label} ambíguo na base: {candidate!r}.")
+            lookup[key] = row
+    return lookup
 
-    totals: dict[str, float] = {}
-    resolved_entries = []
-    missing = []
+
+def initial_species_from_entries(
+    database: dict, entries: list[dict]
+) -> tuple[dict[str, float], list[dict]]:
+    """Normaliza materiais ou espécies diretas em concentrações formais de espécies."""
+    material_lookup = _normalized_lookup(
+        database["materials"], "material_id", "material"
+    )
+    species_lookup = _normalized_lookup(database["species"], "species_id", "espécie")
+
+    initial_species: dict[str, float] = {}
+    resolved_entries: list[dict] = []
+    missing: list[str] = []
+
     for entry in entries:
-        query = entry.get("query", entry.get("componente", entry.get("material_id", "")))
-        concentration_value = entry.get(
-            "concentration", entry.get("concentracao")
+        raw_type = normalize_text(entry.get("entry_type", entry.get("kind", "")))
+        entry_type = (
+            "species"
+            if raw_type in {"species", "specie", "espécie"}
+            or (not raw_type and entry.get("species_id") is not None)
+            else "material"
         )
+        query = (
+            entry.get("species_id", entry.get("query", entry.get("especie", "")))
+            if entry_type == "species"
+            else entry.get(
+                "material_id", entry.get("query", entry.get("componente", ""))
+            )
+        )
+        concentration_value = entry.get("concentration", entry.get("concentracao"))
         concentration = _number(concentration_value, f"concentração de {query!r}")
         if concentration < 0:
             raise ValueError(f"Concentração negativa para {query!r}: {concentration}.")
-        material = lookup.get(normalize_text(query))
-        if material is None:
-            missing.append(str(query))
-            continue
+
+        if entry_type == "species":
+            species = species_lookup.get(normalize_text(query))
+            if species is None:
+                missing.append(f"espécie {query!r}")
+                continue
+            mapping = {species["species_id"]: 1.0}
+            resolved_entries.append(
+                {
+                    "entry_type": "species",
+                    "query": str(query),
+                    "species_id": species["species_id"],
+                    "formula": species["formula"],
+                    "concentration": concentration,
+                    "decomposition": mapping,
+                }
+            )
+        else:
+            material = material_lookup.get(normalize_text(query))
+            if material is None:
+                missing.append(f"material {query!r}")
+                continue
+            mapping = database["material_species"][material["material_id"]]
+            resolved_entries.append(
+                {
+                    "entry_type": "material",
+                    "query": str(query),
+                    "material_id": material["material_id"],
+                    "formula": material["formula"],
+                    "concentration": concentration,
+                    "decomposition": dict(mapping),
+                }
+            )
+
         if concentration > 0:
-            for component_id, coefficient in database["material_composition"][
-                material["material_id"]
-            ].items():
+            for species_id, coefficient in mapping.items():
+                initial_species[species_id] = (
+                    initial_species.get(species_id, 0.0)
+                    + coefficient * concentration
+                )
+
+    if missing:
+        raise ValueError(f"Entradas não encontradas na base: {missing}.")
+    return initial_species, resolved_entries
+
+
+def initial_charge_diagnostics(
+    database: dict,
+    initial_species: dict[str, float],
+    *,
+    absolute_tolerance: float = 1e-12,
+    relative_tolerance: float = 1e-9,
+) -> dict:
+    """Calcula soma(zᵢCᵢ) e a tolerância da entrada por espécies."""
+    residual = 0.0
+    scale = 0.0
+    for species_id, concentration in initial_species.items():
+        species = database["species_by_id"][species_id]
+        contribution = species["charge"] * concentration
+        residual += contribution
+        scale += abs(contribution)
+    tolerance = absolute_tolerance + relative_tolerance * scale
+    return {
+        "residual": residual,
+        "scale": scale,
+        "tolerance": tolerance,
+        "balanced": abs(residual) <= tolerance,
+    }
+
+
+def validate_initial_charge(
+    database: dict, initial_species: dict[str, float]
+) -> dict:
+    diagnostics = initial_charge_diagnostics(database, initial_species)
+    if not diagnostics["balanced"]:
+        raise ChargeBalanceError(
+            diagnostics["residual"], diagnostics["tolerance"]
+        )
+    return diagnostics
+
+
+def component_totals_from_initial_species(
+    database: dict, initial_species: dict[str, float]
+) -> dict[str, float]:
+    """Converte o vetor formal de espécies nos totais conservados do solver."""
+    totals: dict[str, float] = {}
+    for species_id, concentration in initial_species.items():
+        for component_id, coefficient in database["composition"][species_id].items():
+            if database["component_by_id"][component_id]["balance_mode"] == "mass_balance":
                 totals[component_id] = (
                     totals.get(component_id, 0.0) + coefficient * concentration
                 )
-        resolved_entries.append(
-            {
-                "query": str(query),
-                "material_id": material["material_id"],
-                "formula": material["formula"],
-                "concentration": concentration,
-            }
-        )
+    return totals
 
-    if missing:
-        raise ValueError(f"Materiais não encontrados na base: {missing}.")
+
+def component_totals_from_entries(
+    database: dict, entries: list[dict]
+) -> tuple[dict[str, float], list[dict]]:
+    """Normaliza a entrada, valida espécies diretas e obtém totais conservados."""
+    initial_species, resolved_entries = initial_species_from_entries(database, entries)
+    if any(entry["entry_type"] == "species" for entry in resolved_entries):
+        validate_initial_charge(database, initial_species)
+    totals = component_totals_from_initial_species(database, initial_species)
     return totals, resolved_entries

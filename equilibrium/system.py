@@ -197,3 +197,174 @@ def equilibrium_diagnostics(
         "residual_vector": residual_vector,
         "max_abs_residual": float(np.max(np.abs(residual_vector))),
     }
+
+
+def _log10_sum(log_values: list[float]) -> float:
+    """Calcula log10(sum(10**x)) sem estouro ou perda por subfluxo."""
+    if not log_values:
+        raise ValueError("Uma família ácido-base ficou sem espécies.")
+    maximum = max(log_values)
+    return maximum + math.log10(
+        sum(10.0 ** (value - maximum) for value in log_values)
+    )
+
+
+def _ideal_acid_base_families(problem: dict) -> dict[str, list[tuple[float, float]]]:
+    """Agrupa os termos de distribuição de cada componente conservado."""
+    proton_id = problem["proton_component_id"]
+    active_components = set(problem["active_mass_components"])
+    families: dict[str, list[tuple[float, float]]] = {
+        component_id: [] for component_id in problem["active_mass_components"]
+    }
+
+    for species in problem["selected_species"]:
+        composition = problem["database"]["composition"][species["species_id"]]
+        mass_dependencies = [
+            component_id
+            for component_id in composition
+            if component_id != proton_id
+        ]
+        if len(mass_dependencies) > 1:
+            raise ValueError(
+                "O solver ácido-base ideal não admite espécie formada por mais de "
+                f"um componente conservado: {species['species_id']}."
+            )
+        if not mass_dependencies:
+            continue
+
+        component_id = mass_dependencies[0]
+        coefficient = composition[component_id]
+        if component_id not in active_components:
+            continue
+        if not math.isclose(coefficient, 1.0, rel_tol=0.0, abs_tol=1e-12):
+            raise ValueError(
+                "O solver ácido-base ideal exige coeficiente unitário do componente "
+                f"conservado em {species['species_id']}."
+            )
+        families[component_id].append(
+            (species["log_beta"], composition.get(proton_id, 0.0))
+        )
+
+    missing = [component_id for component_id, terms in families.items() if not terms]
+    if missing:
+        raise ValueError(
+            "Componentes ativos sem família ácido-base: "
+            f"{sorted(missing)}."
+        )
+    return families
+
+
+def _ideal_acid_base_values(
+    problem: dict,
+    families: dict[str, list[tuple[float, float]]],
+    log_hydrogen: float,
+) -> np.ndarray:
+    """Obtém as concentrações livres a partir de H+ e dos balanços analíticos."""
+    values = [log_hydrogen]
+    for component_id in problem["active_mass_components"]:
+        log_distribution = _log10_sum(
+            [
+                log_beta + proton_coefficient * log_hydrogen
+                for log_beta, proton_coefficient in families[component_id]
+            ]
+        )
+        values.append(
+            math.log10(problem["component_totals"][component_id])
+            - log_distribution
+        )
+    return np.asarray(values, dtype=float)
+
+
+def solve_ideal_acid_base(
+    problem: dict,
+    *,
+    tolerance: float = 1e-12,
+    log_hydrogen_tolerance: float = 1e-12,
+    max_iterations: int = 256,
+    min_log_hydrogen: float = -100.0,
+    max_log_hydrogen: float = 100.0,
+) -> dict:
+    """Resolve o equilíbrio ideal por bisseção monotônica em log10([H+]).
+
+    Em um sistema exclusivamente ácido-base, cada espécie contém no máximo um
+    componente conservado. Fixado H+, o balanço de cada família fornece
+    diretamente a concentração do componente livre; resta somente a equação de
+    eletroneutralidade. A redução evita a má condição numérica do Newton
+    multidimensional quando coexistem componentes em escalas muito diferentes.
+    """
+    if tolerance <= 0 or not math.isfinite(tolerance):
+        raise ValueError("A tolerância deve ser positiva e finita.")
+    if log_hydrogen_tolerance <= 0 or not math.isfinite(log_hydrogen_tolerance):
+        raise ValueError("A tolerância de log10([H+]) deve ser positiva e finita.")
+    if max_iterations <= 0:
+        raise ValueError("O número máximo de iterações deve ser positivo.")
+    if not min_log_hydrogen < max_log_hydrogen:
+        raise ValueError("Os limites de log10([H+]) são inválidos.")
+
+    families = _ideal_acid_base_families(problem)
+
+    def evaluate(log_hydrogen: float) -> tuple[np.ndarray, np.ndarray]:
+        values = _ideal_acid_base_values(problem, families, log_hydrogen)
+        return values, system_residuals(problem, values)
+
+    lower = float(min_log_hydrogen)
+    upper = float(max_log_hydrogen)
+    lower_values, lower_residuals = evaluate(lower)
+    upper_values, upper_residuals = evaluate(upper)
+    lower_charge = float(lower_residuals[-1])
+    upper_charge = float(upper_residuals[-1])
+
+    if lower_charge == 0.0:
+        residual_norm = float(np.linalg.norm(lower_residuals, ord=np.inf))
+        return {
+            "converged": residual_norm <= tolerance,
+            "values": lower_values,
+            "iterations": 0,
+            "residuals": lower_residuals,
+            "residual_norm": residual_norm,
+        }
+    if upper_charge == 0.0:
+        residual_norm = float(np.linalg.norm(upper_residuals, ord=np.inf))
+        return {
+            "converged": residual_norm <= tolerance,
+            "values": upper_values,
+            "iterations": 0,
+            "residuals": upper_residuals,
+            "residual_norm": residual_norm,
+        }
+    if lower_charge > 0.0 or upper_charge < 0.0:
+        raise ValueError(
+            "Não foi possível delimitar a raiz de eletroneutralidade no intervalo "
+            f"{min_log_hydrogen:g} ≤ log10([H+]) ≤ {max_log_hydrogen:g}."
+        )
+
+    values = lower_values
+    residuals = lower_residuals
+    for iteration in range(1, max_iterations + 1):
+        midpoint = (lower + upper) / 2.0
+        values, residuals = evaluate(midpoint)
+        residual_norm = float(np.linalg.norm(residuals, ord=np.inf))
+        if (
+            residual_norm <= tolerance
+            and upper - lower <= log_hydrogen_tolerance
+        ):
+            return {
+                "converged": True,
+                "values": values,
+                "iterations": iteration,
+                "residuals": residuals,
+                "residual_norm": residual_norm,
+            }
+
+        if residuals[-1] > 0.0:
+            upper = midpoint
+        else:
+            lower = midpoint
+
+    return {
+        "converged": False,
+        "values": values,
+        "iterations": max_iterations,
+        "residuals": residuals,
+        "residual_norm": float(np.linalg.norm(residuals, ord=np.inf)),
+    }

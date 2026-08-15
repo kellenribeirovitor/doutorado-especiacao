@@ -14,8 +14,11 @@ O repositório reúne:
 - solução aquosa ideal;
 - equilíbrio ácido-base;
 - autoionização da água;
-- misturas de componentes cadastrados;
-- resolução simultânea dos balanços de componentes e carga.
+- entrada por compostos cadastrados ou diretamente por espécies;
+- decomposição formal dos compostos em espécies antes do equilíbrio;
+- validação da eletroneutralidade das entradas diretas por espécies;
+- balanços analíticos por família ácido-base;
+- resolução robusta da eletroneutralidade em função de `log10([H+])`.
 
 Precipitação, complexação, oxirredução e correções de atividade ainda não fazem parte desta primeira versão.
 
@@ -57,6 +60,33 @@ A planilha `data/base_componentes.xlsx` continua sendo a fonte de verdade da bas
 ```bash
 python scripts/export_web_data.py
 ```
+
+A base operacional é mantida em cinco tabelas relacionadas: componentes-base,
+espécies, composição das espécies, materiais de entrada e decomposição formal
+dos materiais em espécies. A antiga aba `material_composition` permanece apenas
+como registro legado derivado e não é consumida pelo programa. As abas auxiliares documentam o escopo, as referências, a
+origem de cada constante e 18 casos prioritários de validação. As constantes são
+armazenadas na convenção única `log10(beta)` e a importação valida
+identificadores, cargas, composições, convenções e modelos de entrada antes de
+executar qualquer cálculo. Para o escopo ácido-base ideal, cada espécie pode
+depender de H+ e de no máximo um componente conservado.
+
+Na interface, cada linha pode ser um **Composto** ou uma **Espécie**, permitindo
+misturar os dois tipos na mesma solução. Compostos usam `material_species` para
+gerar um vetor formal de espécies; por exemplo, `HF → H+ + F-` e
+`CH3COOH → H+ + CH3COO-`. Essa decomposição contabiliza matéria e carga, mas
+não fixa a dissociação final: as constantes em `species` determinam novamente a
+distribuição de equilíbrio. Quando houver entrada direta por espécies, a soma
+`Σ zᵢCᵢ` do conjunto completo é validada antes do solver; entradas sem
+eletroneutralidade são recusadas com uma sugestão quantitativa de correção de
+carga. Após o cálculo, o relatório pode ser impresso ou salvo em PDF pelo navegador.
+
+Os conjuntos de teste cobrem água pura, ácido/base fortes, neutralização,
+tampões monoprotônicos, carbonato, fosfato, citrato, espécies anfipróticas,
+concentração nula, separação extrema de escalas e combinações pareadas de todos
+os materiais. Carbonato e fosfato foram incluídos com constantes cumulativas a
+25 °C e força iônica zero, com rastreabilidade na própria planilha. O carbonato
+é tratado como sistema fechado, sem troca com `CO2(g)`.
 
 ## Dados e privacidade
 
