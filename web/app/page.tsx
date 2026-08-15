@@ -216,13 +216,15 @@ export default function Home() {
       </header>
 
       <section className="workspace" id="workspace">
-        <div className="workspace-heading">
-          <h1>Sistema de equilíbrio</h1>
-        </div>
+        <div className="workspace-toolbar">
+          <div className="workspace-heading">
+            <h1>Sistema de equilíbrio</h1>
+          </div>
 
-        <nav className="step-navigation" aria-label="Etapas da análise">
-          {steps.map((step, index) => <a className={index === 0 ? "active" : ""} href={step.target} key={step.number}><span>{step.number}</span>{step.label}</a>)}
-        </nav>
+          <nav className="step-navigation" aria-label="Etapas da análise">
+            {steps.map((step, index) => <a className={index === 0 ? "active" : ""} href={step.target} key={step.number}><span>{step.number}</span>{step.label}</a>)}
+          </nav>
+        </div>
 
         {error && <div className="notice notice-error" role="alert"><span aria-hidden="true">!</span><p>{error}</p></div>}
 
